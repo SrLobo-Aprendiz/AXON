@@ -1,0 +1,115 @@
+| table_name                 | column_name          | data_type                |
+| -------------------------- | -------------------- | ------------------------ |
+| app_templates              | code_name            | text                     |
+| app_templates              | content              | text                     |
+| app_templates              | created_at           | timestamp with time zone |
+| app_templates              | description          | text                     |
+| app_templates              | id                   | uuid                     |
+| app_templates              | updated_at           | timestamp with time zone |
+| chat_messages              | content              | text                     |
+| chat_messages              | created_at           | timestamp with time zone |
+| chat_messages              | deleted_at           | timestamp with time zone |
+| chat_messages              | household_id         | uuid                     |
+| chat_messages              | id                   | uuid                     |
+| chat_messages              | media_url            | text                     |
+| chat_messages              | message_type         | USER-DEFINED             |
+| chat_messages              | sender_id            | uuid                     |
+| fridge_items               | created_at           | timestamp with time zone |
+| fridge_items               | created_by           | uuid                     |
+| fridge_items               | household_id         | uuid                     |
+| fridge_items               | id                   | uuid                     |
+| fridge_items               | image_url            | text                     |
+| fridge_items               | position_x           | double precision         |
+| fridge_items               | position_y           | double precision         |
+| household_members          | created_at           | timestamp with time zone |
+| household_members          | household_id         | uuid                     |
+| household_members          | id                   | uuid                     |
+| household_members          | nickname             | text                     |
+| household_members          | role                 | text                     |
+| household_members          | user_id              | uuid                     |
+| household_uploads          | created_at           | timestamp with time zone |
+| household_uploads          | file_path            | text                     |
+| household_uploads          | household_id         | uuid                     |
+| household_uploads          | id                   | uuid                     |
+| household_uploads          | size_bytes           | bigint                   |
+| households                 | created_at           | timestamp with time zone |
+| households                 | id                   | uuid                     |
+| households                 | name                 | text                     |
+| households                 | storage_limit_mb     | integer                  |
+| households                 | storage_used_mb      | double precision         |
+| households_copia_seguridad | created_at           | timestamp with time zone |
+| households_copia_seguridad | id                   | uuid                     |
+| households_copia_seguridad | invite_code          | text                     |
+| households_copia_seguridad | name                 | text                     |
+| households_copia_seguridad | type                 | USER-DEFINED             |
+| inventory_items            | category             | text                     |
+| inventory_items            | created_at           | timestamp with time zone |
+| inventory_items            | created_by           | uuid                     |
+| inventory_items            | default_pack_size    | integer                  |
+| inventory_items            | deleted_at           | timestamp with time zone |
+| inventory_items            | expiry_date          | date                     |
+| inventory_items            | household_id         | uuid                     |
+| inventory_items            | id                   | uuid                     |
+| inventory_items            | in_cart              | boolean                  |
+| inventory_items            | lifecycle_status     | USER-DEFINED             |
+| inventory_items            | min_quantity         | integer                  |
+| inventory_items            | name                 | text                     |
+| inventory_items            | personal_owner_id    | uuid                     |
+| inventory_items            | price                | numeric                  |
+| inventory_items            | quantity             | numeric                  |
+| inventory_items            | status               | USER-DEFINED             |
+| inventory_items            | storage_zone_id      | uuid                     |
+| inventory_items            | unit                 | text                     |
+| inventory_items            | updated_at           | timestamp with time zone |
+| invitations                | created_at           | timestamp with time zone |
+| invitations                | created_by           | uuid                     |
+| invitations                | email                | text                     |
+| invitations                | expires_at           | timestamp with time zone |
+| invitations                | household_id         | uuid                     |
+| invitations                | id                   | uuid                     |
+| invitations                | token                | uuid                     |
+| pioneer_codes              | code                 | text                     |
+| pioneer_codes              | is_used              | boolean                  |
+| pioneer_codes              | tier                 | USER-DEFINED             |
+| profiles                   | avatar_url           | text                     |
+| profiles                   | current_household_id | uuid                     |
+| profiles                   | email                | text                     |
+| profiles                   | full_name            | text                     |
+| profiles                   | household_ids        | ARRAY                    |
+| profiles                   | id                   | uuid                     |
+| profiles                   | is_superadmin        | boolean                  |
+| profiles                   | ui_mode              | USER-DEFINED             |
+| profiles                   | updated_at           | timestamp with time zone |
+| prompt_options             | category             | text                     |
+| prompt_options             | created_at           | timestamp with time zone |
+| prompt_options             | id                   | uuid                     |
+| prompt_options             | is_active            | boolean                  |
+| prompt_options             | label                | text                     |
+| prompt_options             | prompt_fragment      | text                     |
+| prompt_options             | sort_order           | integer                  |
+| safety_logs                | action_type          | text                     |
+| safety_logs                | child_id             | uuid                     |
+| safety_logs                | created_at           | timestamp with time zone |
+| safety_logs                | id                   | uuid                     |
+| safety_logs                | parent_id            | uuid                     |
+| safety_logs                | payload              | jsonb                    |
+| shopping_list              | added_by             | uuid                     |
+| shopping_list              | created_at           | timestamp with time zone |
+| shopping_list              | estimated_price      | numeric                  |
+| shopping_list              | household_id         | uuid                     |
+| shopping_list              | id                   | uuid                     |
+| shopping_list              | is_ghost             | boolean                  |
+| shopping_list              | item_name            | text                     |
+| shopping_list              | linked_item_id       | uuid                     |
+| shopping_list              | quantity             | integer                  |
+| shopping_list              | status               | USER-DEFINED             |
+| storage_zones              | created_at           | timestamp with time zone |
+| storage_zones              | household_id         | uuid                     |
+| storage_zones              | id                   | uuid                     |
+| storage_zones              | name                 | text                     |
+| storage_zones              | type                 | USER-DEFINED             |
+| user_roles_deprecated      | created_at           | timestamp with time zone |
+| user_roles_deprecated      | household_id         | uuid                     |
+| user_roles_deprecated      | id                   | uuid                     |
+| user_roles_deprecated      | role                 | USER-DEFINED             |
+| user_roles_deprecated      | user_id              | uuid                     |
