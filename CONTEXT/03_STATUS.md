@@ -1,14 +1,32 @@
 # ESTADO DEL PROYECTO
 
+## 🔄 EN PROCESO (FASE 1.5 - PROFESIONALIZACIÓN & SCALE)
+### Seguridad & Arquitectura
+- [ ] **Auditoría RLS:** Verificar que los datos están aislados por `household_id`.
+- [ ] **Roles de Sistema:** Implementar rol `superadmin` vs `user`.
+- [ ] **Onboarding:** Flujo de invitación a nuevos miembros (Link/Código).
+- [ ] **Email:** Personalización de plantillas de correo (Verificación/Bienvenida).
+
+### UX/UI Profesional
+- [ ] **Routing:** Implementar sistema de rutas robusto (Login vs App).
+- [ ] **Landing Login:** Diseño de página de entrada profesional.
+- [ ] **Configuración de Cuenta:** Panel para que el usuario gestione sus datos/suscripción.
+
 ## ✅ COMPLETADO (FASE 1 - CORE DOMÉSTICO)
+
+### Interfaz
+- [x] **StockModal v2:** Gestión avanzada de lotes y visualización.
 ### Infraestructura & DB
 - [x] Definición de Stack (React + Tailwind + Supabase).
 - [x] Esquema de Base de Datos finalizado (`inventory_items`, `shopping_list`, `fridge_items`).
 - [x] **Blindaje SQL:** Constraints únicos para evitar duplicados en listas activas.
 
 ### Funcionalidad "Cerebro"
+
 - [x] **Automatización de Compra:** Detección automática de falta de stock (VIP < 4, Normal < 2).
 - [x] **Motor de Alertas v2:** Distinción entre "Críticos" (Rojo) y "Sugerencias/Opcionales" (Azul).
+- [x] **Gestión de Vida (Ghost vs Persistente):** Lógica de persistencia inteligente.
+- [x] **Hotfix Móvil:** Estabilidad garantizada en dispositivos antiguos.(Azul).
 - [x] **Gestión de Vida (Ghost vs Persistente):**
   - Productos Ghost: Se autodestruyen al llegar a 0.
   - Productos Estándar: Persisten a 0 uds (Lote Virtual) para recordar reposición.
