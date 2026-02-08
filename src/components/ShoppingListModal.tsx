@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingListItem } from '../lib/types';
+import { ShoppingListItem, ProductDefinition } from '../lib/types'; // Importamos ProductDefinition
 import { 
   Plus, Check, Trash2, ShoppingCart, 
   Beef, Milk, Carrot, SprayCan, Package, 
   Croissant, Snowflake, Coffee,
   AlertCircle, AlertTriangle, Ghost,
-  ArrowRight, Clock, LayoutGrid
+  ArrowRight, Clock, LayoutGrid, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,12 @@ const CATEGORY_ICONS: Record<string, { icon: React.ReactNode, color: string, lab
 };
 const DB_CATEGORIES = Object.keys(CATEGORY_ICONS);
 
+// MAPA DE TRADUCCIÓN INVERSO (Para mostrar en sugerencias)
+const CATEGORY_MAP: Record<string, string> = {
+  Pantry: 'Despensa', Dairy: 'Lácteos', Meat: 'Carne', Produce: 'Fresco', 
+  Bakery: 'Panadería', Frozen: 'Congelados', Beverages: 'Bebidas', Household: 'Limpieza'
+};
+
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, onClose, householdId }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -46,10 +52,13 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
   const [viewFilter, setViewFilter] = useState<string | null>(null); // Null = Ver Todo
   const [addItemCategory, setAddItemCategory] = useState<string>('Pantry'); // Categoría para el nuevo item
   
-  const [selectedPriority, setSelectedPriority] = useState<'stocked' | 'low' | 'panic'>('stocked'); 
   const [isGhost, setIsGhost] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'active' | 'postponed'>('active');
+
+  // --- ESTADOS DE AUTOCOMPLETADO ---
+  const [searchResults, setSearchResults] = useState<ProductDefinition[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Sincronizar filtro con categoría de añadido
   useEffect(() => {
@@ -57,6 +66,36 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
       setAddItemCategory(viewFilter); // Si filtro por Carne, añado Carne
     }
   }, [viewFilter]);
+
+  // Búsqueda en tiempo real (Autocompletado)
+  useEffect(() => {
+    const search = async () => {
+      if (!newItemName.trim() || !householdId) { setSearchResults([]); return; }
+      
+      // Buscar en product_definitions
+      const { data } = await supabase
+        .from('product_definitions')
+        .select('*')
+        .eq('household_id', householdId)
+        .ilike('name', `%${newItemName}%`)
+        .limit(5);
+      
+      if (data) setSearchResults(data as ProductDefinition[]);
+    };
+    
+    // Debounce de 300ms
+    const timeoutId = setTimeout(search, 300);
+    return () => clearTimeout(timeoutId);
+  }, [newItemName, householdId]);
+
+  const handleSelectSuggestion = (product: ProductDefinition) => {
+      setNewItemName(product.name);
+      // Auto-seleccionar la categoría del producto si no hay filtro activo
+      if (!viewFilter) {
+          setAddItemCategory(product.category);
+      }
+      setShowSuggestions(false);
+  };
 
   const fetchItems = useCallback(async () => {
     if (!householdId) return;
@@ -97,15 +136,15 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
       added_by: user.id,
       is_manual: true,
       is_ghost: isGhost,
-      priority: selectedPriority,
+      priority: 'stocked', // Valor por defecto neutro
       created_at: new Date().toISOString()
     };
     setItems(prev => [optimisticItem, ...prev]);
 
     // Reset Formulario INMEDIATO
     setNewItemName(''); 
-    setSelectedPriority('stocked'); 
     setIsGhost(false); 
+    setShowSuggestions(false); // Ocultar sugerencias
     // No reseteamos categoría para permitir añadir varios seguidos del mismo tipo
 
     // Llamada DB
@@ -118,7 +157,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
       added_by: user.id,
       is_manual: true,
       is_ghost: isGhost,
-      priority: selectedPriority 
+      priority: 'stocked' // Valor por defecto neutro
     });
 
     if (error) {
@@ -203,7 +242,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
 
         {/* INPUT ZONA (Solo Activos) */}
         {viewMode === 'active' && (
-            <div className="p-4 bg-zinc-900 border-b border-zinc-800 shrink-0 z-10 shadow-md flex flex-col gap-3">
+            <div className="p-4 bg-zinc-900 border-b border-zinc-800 shrink-0 z-10 shadow-md flex flex-col gap-3 relative">
                 
                 {/* 1. FILTROS VISUALES (Píldoras) */}
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -221,15 +260,38 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                 </div>
 
                 {/* 2. BARRA DE ENTRADA */}
-                <div className="flex gap-2">
-                    {/* Input Nombre */}
-                    <Input 
-                        placeholder={viewFilter ? `Añadir en ${CATEGORY_ICONS[viewFilter].label}...` : "Añadir..."} 
-                        value={newItemName} 
-                        onChange={(e) => setNewItemName(e.target.value)} 
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddItem()} 
-                        className="bg-zinc-950 border-zinc-700 text-white flex-1"
-                    />
+                <div className="flex gap-2 relative">
+                    {/* Input Nombre con Sugerencias */}
+                    <div className="flex-1 relative">
+                        <Input 
+                            placeholder={viewFilter ? `Añadir en ${CATEGORY_ICONS[viewFilter].label}...` : "Añadir..."} 
+                            value={newItemName} 
+                            onChange={(e) => {
+                                setNewItemName(e.target.value);
+                                setShowSuggestions(true);
+                            }} 
+                            onFocus={() => setShowSuggestions(true)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem()} 
+                            className="bg-zinc-950 border-zinc-700 text-white w-full pr-8"
+                            autoComplete="off"
+                        />
+                        {/* Icono de búsqueda pequeño */}
+                        <Search className="absolute right-3 top-3 w-4 h-4 text-zinc-600 pointer-events-none"/>
+
+                        {/* DESPLEGABLE DE SUGERENCIAS */}
+                        {showSuggestions && searchResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden max-h-48 overflow-y-auto">
+                                {searchResults.map(p => (
+                                    <div key={p.id} onClick={() => handleSelectSuggestion(p)} className="px-3 py-2 hover:bg-zinc-800 cursor-pointer flex justify-between items-center group border-b border-zinc-800/50 last:border-0">
+                                        <span className="text-sm font-medium text-zinc-200 group-hover:text-white">{p.name}</span>
+                                        <span className="text-[10px] text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
+                                            {CATEGORY_MAP[p.category] || p.category}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Selector Categoría (Solo si NO hay filtro activo, para poder elegir) */}
                     {!viewFilter && (
@@ -247,16 +309,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                         </Select>
                     )}
 
-                    {/* Selector Prioridad VIP */}
-                    <Select value={selectedPriority} onValueChange={(v: any) => setSelectedPriority(v)}>
-                        <SelectTrigger className="w-[80px] bg-zinc-950 border-zinc-700 text-xs px-1 text-center"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                            <SelectItem value="panic"><span className="text-red-400 font-bold">VIP</span></SelectItem>
-                            <SelectItem value="low"><span className="text-blue-400">Estándar</span></SelectItem>
-                            <SelectItem value="stocked"><span className="text-zinc-400">Puntual</span></SelectItem>
-                        </SelectContent>
-                    </Select>
-                    
                     {/* Botón Añadir */}
                     <Button onClick={handleAddItem} disabled={isLoading} className="bg-green-600 hover:bg-green-500 px-3"><Plus className="w-4 h-4" /></Button>
                 </div>
@@ -264,7 +316,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
         )}
 
         {/* LISTA */}
-        <ScrollArea className="flex-1 p-4 bg-zinc-950">
+        <ScrollArea className="flex-1 p-4 bg-zinc-950" onClick={() => setShowSuggestions(false)}>
           <div className="space-y-2 mb-6">
             {visibleItems.length === 0 && <div className="text-center text-zinc-700 py-10 text-sm">Lista vacía.</div>}
             
@@ -284,6 +336,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                   <div className="flex-1">
                     <p className={`font-medium text-sm text-zinc-200 flex items-center gap-1 ${item.status==='checked'?'line-through':''}`}>
                       {item.item_name}
+                      {/* Mostrar indicadores de prioridad si vienen de automático */}
                       {prio === 'panic' && <AlertCircle className="w-3 h-3 text-red-500 ml-1" />}
                       {prio === 'low' && <AlertTriangle className="w-3 h-3 text-orange-500 ml-1" />}
                       {(item as any).is_ghost && <Ghost className="w-3 h-3 text-purple-400 opacity-70" />}
