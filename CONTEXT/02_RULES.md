@@ -19,3 +19,6 @@
   2. Pedir feature pequeña.
   3. Implementar.
   4. Validar visualmente.
+  4. **Compatibilidad Móvil (Legacy First):**
+   - **Prohibido `autoFocus`:** NUNCA usar `autoFocus` en inputs dentro de componentes flotantes (Dialog, Popover, Drawer). Provoca "White Screen of Death" en Android WebViews antiguos.
+   - **Safe Dates:** Parsear fechas siempre con validación `isNaN`. Los navegadores móviles viejos explotan con formatos de fecha incorrectos.

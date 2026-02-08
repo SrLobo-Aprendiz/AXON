@@ -27,6 +27,29 @@ export interface FridgeItem {
   created_by: string; // user_id
   is_locked: boolean; // If true, only Admins can move it
 }
+// --- PHASE 1: INVENTORY (SMART STOCK) ---
+export type ImportanceLevel = 'critical' | 'high' | 'normal' | 'ghost';
+
+export interface ProductDefinition {
+  id: string;
+  household_id: string;
+  name: string;
+  category: string; // 'Meat' | 'Dairy' | 'Pantry', etc.
+  unit: string; // 'uds' | 'kg' | 'L'
+  importance_level: ImportanceLevel; // Define color warning logic
+  min_quantity: number | null; // If null, uses defaults (4, 2, 1)
+  is_ghost: boolean; // If true: Delete on 0 qty. If false: Persist at 0 qty.
+}
+
+export interface InventoryItem {
+  id: string;
+  product_id: string; // FK to ProductDefinition
+  household_id: string;
+  quantity: number;
+  location: string; // 'Despensa', 'Nevera', etc.
+  expiry_date: string | null; // ISO Date
+  created_at: string;
+}
 
 // --- PHASE 2: SOCIAL SPACES (SHUTTER/ALLEY) ---
 export type SurfaceType = 'shutter_metal' | 'wall_brick' | 'wall_concrete';

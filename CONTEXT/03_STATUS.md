@@ -8,11 +8,23 @@
 
 ### Funcionalidad "Cerebro"
 - [x] **Automatización de Compra:** Detección automática de falta de stock (VIP < 4, Normal < 2).
-- [x] **Auto-Limpieza:** El sistema borra de la lista de compra si detecta entrada de stock manual.
-- [x] **Lógica FIFO:** El consumo resta siempre del lote con caducidad más próxima.
-- [x] **Gestión de Lotes (WMS):** Mudanza de stock entre ubicaciones (Total y Parcial/Split).
+- [x] **Motor de Alertas v2:** Distinción entre "Críticos" (Rojo) y "Sugerencias/Opcionales" (Azul).
+- [x] **Gestión de Vida (Ghost vs Persistente):**
+  - Productos Ghost: Se autodestruyen al llegar a 0.
+  - Productos Estándar: Persisten a 0 uds (Lote Virtual) para recordar reposición.
+- [x] **Auto-Limpieza:** Borrado automático de lotes virtuales al entrar stock real.
+- [x] **Lógica FIFO:** Consumo inteligente priorizando caducidad más próxima.
 
 ### Interfaz (UX Funcional)
+- [x] **FridgeCanvas:** Visualización de notas e imanes estáticos.
+- [x] **StockModal v2 (Robustez Móvil):**
+  - Edición "In-Place" (Lápices siempre visibles).
+  - Menú de Mudanza Avanzado (Split Lotes + Cambio de fecha).
+  - Kill Switch (Borrado total de producto + histórico).
+  - **Hotfix:** Estabilidad garantizada en Android Legacy (No autoFocus).
+- [x] **ShoppingListModal:** Filtros de categoría y UI Optimista.
+- [x] **Alertas Unificadas:** Tarjetas inteligentes que combinan avisos de Stock y Caducidad.
+
 - [x] **FridgeCanvas:** Visualización de notas e imanes estáticos.
 - [x] **StockModal:** Visualización agrupada (Máscara) vs Desglose por lotes.
 - [x] **ShoppingListModal:** Filtros de categoría, lógica de "Posponer" y UI Optimista.

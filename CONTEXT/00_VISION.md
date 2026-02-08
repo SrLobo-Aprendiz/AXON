@@ -16,7 +16,7 @@ Objetivo: Utilidad inmediata y gestión del caos.
 Un tablero digital compartido que resuelve el conflicto orden vs. caos.
 - **Capa Base (Admin/Padres):** Imanes funcionales (Lista de Compra, Menú Semanal). Están "pegados con superglue" (solo editables por Nivel 3+). Visibles por todos.
 - **Capa Personal (Caos):** Capa superpuesta donde cada usuario coloca sus notas, pegatinas o dibujos. No afectan a la estructura base. Configurable: "Ver solo lo mío" vs "Ver todo".
-- **Inventario:** Gestión multizona (Despensa, Baño, Nevera) con sincronización offline-first.
+- **Inventario Inteligente:** Gestión multizona (Despensa, Baño, Nevera). El sistema distingue entre productos "Estructurales" (si se acaban, avisa) y "Temporales/Ghost" (si se acaban, desaparecen para no ensuciar la base de datos).
 
 ---
 
