@@ -1052,4 +1052,3 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 };
 
 export default StockModal;
-}
