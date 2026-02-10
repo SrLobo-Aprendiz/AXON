@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Save, X } from 'lucide-react';
+import { CalendarIcon, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -10,9 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const DEFAULT_LOCATIONS = ['Despensa', 'Nevera', 'Congelador', 'Baño', 'Limpieza', 'Trastero'];
+import { LocationAutocomplete } from './LocationAutocomplete';
 
 interface AddBatchDialogProps {
   product: {
@@ -31,16 +29,14 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Campos del lote
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
-  const [location, setLocation] = useState('Despensa');
-  const [isCustomLocation, setIsCustomLocation] = useState(false);
+  const [location, setLocation] = useState('');
 
   const resetForm = () => {
     setQuantity(''); setPrice(''); setExpiryDate(undefined);
-    setLocation('Despensa'); setIsCustomLocation(false);
+    setLocation('Despensa');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,7 +85,7 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
           </DialogHeader>
 
           <div className="grid gap-4 py-6">
-            {/* CANTIDAD (Con unidad fija al lado) */}
+            {/* CANTIDAD */}
             <div className="grid gap-2">
               <Label className="text-zinc-500 text-[10px] uppercase font-bold">Cantidad a añadir</Label>
               <div className="flex items-center gap-3">
@@ -128,23 +124,15 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
                 </div>
             </div>
 
-             {/* UBICACIÓN */}
+             {/* UBICACIÓN NUEVA */}
             <div className="grid gap-2">
                 <Label className="text-zinc-500 text-[10px] uppercase font-bold">Ubicación</Label>
-                {isCustomLocation ? (
-                    <div className="flex gap-1">
-                    <Input value={location} onChange={(e) => setLocation(e.target.value)} className="bg-zinc-900 border-blue-500/50" autoFocus placeholder="¿Dónde está?"/>
-                    <Button size="icon" variant="ghost" type="button" onClick={() => { setIsCustomLocation(false); setLocation('Despensa'); }}><X className="w-4 h-4"/></Button>
-                    </div>
-                ) : (
-                <Select value={location} onValueChange={(val) => { val === 'custom' ? setIsCustomLocation(true) : setLocation(val) }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                    {DEFAULT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
-                    <SelectItem value="custom" className="text-blue-400 font-bold">+ Nuevo lugar...</SelectItem>
-                    </SelectContent>
-                </Select>
-                )}
+                <LocationAutocomplete 
+                    value={location} 
+                    onChange={setLocation} 
+                    householdId={product.household_id} 
+                    placeholder="¿Dónde lo guardas?"
+                />
             </div>
           </div>
 

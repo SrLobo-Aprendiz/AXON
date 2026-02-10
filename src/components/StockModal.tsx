@@ -24,6 +24,7 @@ import AddItemDialog from './AddItemDialog';
 import AddBatchDialog from './AddBatchDialog';
 import { Beef, Milk, Carrot, SprayCan, Croissant, Snowflake, Coffee } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
+import { LocationAutocomplete } from './LocationAutocomplete';
 
 interface StockModalProps {
   isOpen: boolean;
@@ -42,7 +43,6 @@ const CATEGORY_ICONS: Record<string, { icon: React.ReactNode, color: string, lab
   Pantry: { icon: <Package className="w-4 h-4"/>, color: 'text-zinc-400 bg-zinc-400/10', label: 'Despensa' },
 };
 
-const DEFAULT_LOCATIONS = ['Despensa', 'Nevera', 'Congelador', 'Baño', 'Limpieza', 'Trastero'];
 
 // Helper seguro para fechas (Evita crash en móviles antiguos)
 const safeDate = (d: string | null | undefined) => {
@@ -51,30 +51,34 @@ const safeDate = (d: string | null | undefined) => {
     return isNaN(date.getTime()) ? undefined : date;
 };
 
-// --- SUB-COMPONENTE: FILA DE RECEPCIÓN (AUTO-LIMPIEZA INCLUIDA) ---
+
+
+// --- SUB-COMPONENTE: RECEPTION ROW (Con selector GHOST añadido) ---
 const ReceptionRow = ({ item, householdId, onReceive }: { item: any, householdId: string, onReceive: () => void }) => {
     const { toast } = useToast();
     const [qty, setQty] = useState<string>(item.quantity?.toString() || '1');
     const [unit, setUnit] = useState<string>(item.unit || 'uds'); 
-    const [loc, setLoc] = useState('Despensa');
-    const [isCustomLoc, setIsCustomLoc] = useState(false); 
+    const [loc, setLoc] = useState('');
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [isChecking, setIsChecking] = useState(true);
     const [isNewProduct, setIsNewProduct] = useState(false);
+    
+    // Estado local para controlar si es Ghost aquí y ahora
+    const [isGhostMode, setIsGhostMode] = useState(item.is_ghost || false);
+    
     const [priorityMode, setPriorityMode] = useState<'critical'|'high'|'normal'>(item.priority || 'normal');
     const [manualMinQty, setManualMinQty] = useState<string>('');
 
     useEffect(() => {
         const check = async () => {
-            if (item.is_ghost) { setIsChecking(false); return; }
+            // Si ya venía como ghost de la lista, respetamos eso inicialmente, pero permitimos cambiarlo
+            // Quitamos el return anticipado para permitir editar si deja de ser ghost
             const { data } = await supabase.from('product_definitions')
                 .select('id, unit').eq('household_id', householdId).ilike('name', item.item_name).maybeSingle();
             
-            if (!data) {
-                setIsNewProduct(true);
-            } else if (data.unit) {
-                setUnit(data.unit);
-            }
+            if (!data) setIsNewProduct(true);
+            else if (data.unit) setUnit(data.unit);
+            
             setIsChecking(false);
         };
         check();
@@ -94,15 +98,15 @@ const ReceptionRow = ({ item, householdId, onReceive }: { item: any, householdId
                     name: item.item_name,
                     category: item.category || 'Pantry',
                     unit: unit,
-                    importance_level: item.is_ghost ? 'ghost' : priorityMode,
-                    min_quantity: manualMinQty ? Number(manualMinQty) : null,
-                    is_ghost: item.is_ghost || false
+                    // AQUÍ USAMOS LA NUEVA LÓGICA GHOST
+                    importance_level: isGhostMode ? 'ghost' : priorityMode,
+                    min_quantity: (!isGhostMode && manualMinQty) ? Number(manualMinQty) : null,
+                    is_ghost: isGhostMode
                 }).select().single();
                 if (error) throw error;
                 productId = newProd.id;
             }
 
-            // 1. Insertar el Lote Real
             await supabase.from('inventory_items').insert({
                 household_id: householdId,
                 product_id: productId,
@@ -114,50 +118,68 @@ const ReceptionRow = ({ item, householdId, onReceive }: { item: any, householdId
                 expiry_date: date ? format(date, 'yyyy-MM-dd') : null
             });
 
-            // 2. AUTO-LIMPIEZA: Eliminar lotes virtuales (0 uds) de este producto
-            await supabase.from('inventory_items')
-                .delete()
-                .eq('product_id', productId)
-                .eq('quantity', 0);
-
+            await supabase.from('inventory_items').delete().eq('product_id', productId).eq('quantity', 0);
             await supabase.from('shopping_list').delete().eq('id', item.id);
+            
             toast({ title: "Guardado", description: `${item.item_name} añadido al stock.` });
             onReceive();
         } catch (e: any) {
-            toast({ title: "Error", description: e.message, variant: "destructive" });
+            toast({ title: "Error", variant: "destructive" });
         }
     };
 
     if (isChecking) return <div className="p-4 text-xs text-zinc-500">Cargando...</div>;
 
     return (
-        <div className={cn("bg-zinc-900 border rounded-lg p-3 mb-2 flex flex-col gap-2 transition-colors", isNewProduct && !item.is_ghost ? "border-blue-500/30 bg-blue-900/5" : "border-zinc-800")}>
+        <div className={cn("bg-zinc-900 border rounded-lg p-3 mb-2 flex flex-col gap-2 transition-colors", isNewProduct ? "border-blue-500/30 bg-blue-900/5" : "border-zinc-800")}>
             <div className="flex justify-between items-start">
                 <div>
                     <span className="font-bold text-white block">{item.item_name}</span>
                     <Badge variant="outline" className="text-[10px] text-zinc-400 mt-1">{item.category}</Badge>
                 </div>
-                {item.is_ghost && <Badge variant="secondary" className="bg-purple-900/50 text-purple-300 border-purple-500/50"><Ghost className="w-3 h-3 mr-1"/> Ghost</Badge>}
-                {isNewProduct && !item.is_ghost && <Badge className="bg-blue-600 animate-pulse">NUEVO</Badge>}
+                {/* Badge visual solo informativo */}
+                {isGhostMode && <Badge variant="secondary" className="bg-purple-900/50 text-purple-300 border-purple-500/50"><Ghost className="w-3 h-3 mr-1"/> Ghost</Badge>}
+                {isNewProduct && !isGhostMode && <Badge className="bg-blue-600 animate-pulse">NUEVO</Badge>}
             </div>
 
-            {isNewProduct && !item.is_ghost && (
-                <div className="bg-black/20 p-2 rounded border border-blue-500/20 grid grid-cols-2 gap-2">
-                    <div className="flex flex-col gap-1">
-                        <Label className="text-[10px] text-blue-300 uppercase font-bold">Importancia</Label>
-                        <Select value={priorityMode} onValueChange={(v:any) => setPriorityMode(v)}>
-                            <SelectTrigger className="h-7 text-xs bg-zinc-950 border-zinc-700"><SelectValue/></SelectTrigger>
-                            <SelectContent className="bg-zinc-900 text-white">
-                                <SelectItem value="critical" className="text-red-400">Imprescindible</SelectItem>
-                                <SelectItem value="high" className="text-orange-400">P. Media</SelectItem>
-                                <SelectItem value="normal" className="text-blue-400">Opcional</SelectItem>
-                            </SelectContent>
-                        </Select>
+            {/* ZONA DE CONFIGURACIÓN DE PRODUCTO NUEVO */}
+            {isNewProduct && (
+                <div className="bg-black/20 p-2 rounded border border-blue-500/20 flex flex-col gap-2">
+                    
+                    {/* TOGGLE GHOST */}
+                    <div className="flex items-center gap-2 mb-1">
+                        <Checkbox 
+                            id={`ghost-${item.id}`} 
+                            checked={isGhostMode} 
+                            onCheckedChange={(c: boolean) => setIsGhostMode(c)}
+                            className="border-zinc-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+                        />
+                        <label htmlFor={`ghost-${item.id}`} className="text-xs text-zinc-300 cursor-pointer select-none flex items-center gap-1">
+                            Es Ghost <Ghost className="w-3 h-3 text-purple-400"/> 
+                            <span className="text-[9px] text-zinc-500 ml-1">(No avisa al agotarse)</span>
+                        </label>
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <Label className="text-[10px] text-blue-300 uppercase font-bold">Min. Stock</Label>
-                        <Input type="number" className="h-7 text-xs bg-zinc-950 border-zinc-700" placeholder="Ej: 2" value={manualMinQty} onChange={e=>setManualMinQty(e.target.value)} />
-                    </div>
+
+                    {/* SI NO ES GHOST, MOSTRAMOS IMPORTANCIA Y MINIMO */}
+                    {!isGhostMode && (
+                        <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-1">
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] text-blue-300 uppercase font-bold">Importancia</Label>
+                                <Select value={priorityMode} onValueChange={(v:any) => setPriorityMode(v)}>
+                                    <SelectTrigger className="h-7 text-xs bg-zinc-950 border-zinc-700"><SelectValue/></SelectTrigger>
+                                    <SelectContent className="bg-zinc-900 text-white">
+                                        <SelectItem value="critical" className="text-red-400">Imprescindible</SelectItem>
+                                        <SelectItem value="high" className="text-orange-400">P. Media</SelectItem>
+                                        <SelectItem value="normal" className="text-blue-400">Opcional</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] text-blue-300 uppercase font-bold">Min. Stock</Label>
+                                <Input type="number" className="h-7 text-xs bg-zinc-950 border-zinc-700" placeholder="Ej: 2" value={manualMinQty} onChange={e=>setManualMinQty(e.target.value)} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -172,20 +194,14 @@ const ReceptionRow = ({ item, householdId, onReceive }: { item: any, householdId
                     </Select>
                 </div>
 
-                {isCustomLoc ? (
-                    <div className="flex-1 flex gap-1">
-                        <Input value={loc} onChange={(e) => setLoc(e.target.value)} className="h-8 text-xs bg-zinc-950 border-blue-500/50" placeholder="Lugar..."/>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setIsCustomLoc(false); setLoc('Despensa'); }}><X className="w-3 h-3"/></Button>
-                    </div>
-                ) : (
-                    <Select value={loc} onValueChange={(val) => val === 'custom' ? setIsCustomLoc(true) : setLoc(val)}>
-                        <SelectTrigger className="h-8 text-xs bg-zinc-950 border-zinc-700 flex-1"><SelectValue/></SelectTrigger>
-                        <SelectContent className="bg-zinc-900 text-white">
-                            {DEFAULT_LOCATIONS.map(l=><SelectItem key={l} value={l}>{l}</SelectItem>)}
-                            <SelectItem value="custom" className="text-blue-400 font-bold">+ Otro...</SelectItem>
-                        </SelectContent>
-                    </Select>
-                )}
+                <div className="flex-1">
+                    <LocationAutocomplete
+                        value={loc}
+                        onChange={setLoc}
+                        householdId={householdId}
+                        placeholder="Lugar..."
+                    />
+                </div>
 
                 <Popover>
                     <PopoverTrigger asChild><Button variant="outline" className="h-8 px-2 border-zinc-700 bg-zinc-950 text-zinc-400"><CalendarIcon className="w-4 h-4"/></Button></PopoverTrigger>
@@ -200,7 +216,7 @@ const ReceptionRow = ({ item, householdId, onReceive }: { item: any, householdId
     );
 };
 
-// --- SUB-COMPONENTE: FILA DE LOTE (EDICIÓN AVANZADA) ---
+/// --- SUB-COMPONENTE: FILA DE LOTE (CORREGIDO: Colores y Celda Vacía) ---
 const InventoryBatchRow = ({ 
     batch, 
     onDelete, 
@@ -216,486 +232,403 @@ const InventoryBatchRow = ({
     // Estado Mudanza
     const [moveQty, setMoveQty] = useState<string>(batch.quantity.toString());
     const [isOpen, setIsOpen] = useState(false);
-    const [isCustomMode, setIsCustomMode] = useState(false);
-    const [customLoc, setCustomLoc] = useState('');
     // Estado Split Fechas
     const [splitDateMode, setSplitDateMode] = useState(false);
     const [splitDateOrigin, setSplitDateOrigin] = useState<Date | undefined>(safeDate(batch.expiry_date));
     const [splitDateDest, setSplitDateDest] = useState<Date | undefined>(safeDate(batch.expiry_date));
     
-    // Estado Edición In-Place
-    const [isEditLocOpen, setIsEditLocOpen] = useState(false);
-    const [editLoc, setEditLoc] = useState(batch.location);
-    const [isEditDateOpen, setIsEditDateOpen] = useState(false);
+    // CORRECCIÓN 1: Iniciar vacío para que no pre-rellene texto y el buscador funcione limpio
+    const [moveLocation, setMoveLocation] = useState(''); 
 
-    const handleMoveClick = (loc: string) => {
-        const qty = parseFloat(moveQty);
-        if (qty > 0 && qty <= batch.quantity) {
-            onMove(
-                batch, 
-                loc, 
-                qty, 
-                splitDateMode && qty < batch.quantity ? { origin: splitDateOrigin, dest: splitDateDest } : undefined
-            );
-            setIsOpen(false);
-            setIsCustomMode(false);
-            setSplitDateMode(false);
+    const handleMove = () => {
+        const q = Number(moveQty);
+        if (q <= 0 || q > batch.quantity) {
+            toast({ title: "Error", description: "Cantidad inválida", variant: "destructive" });
+            return;
         }
-    };
+        if (!moveLocation.trim()) {
+             toast({ title: "Falta destino", description: "Elige una ubicación.", variant: "destructive" });
+             return;
+        }
 
-    const handleQuickLocUpdate = async (newLoc: string) => {
-        await supabase.from('inventory_items').update({ location: newLoc } as any).eq('id', batch.id);
-        toast({ title: "Ubicación Actualizada", description: `Lote movido a ${newLoc}` });
-        setIsEditLocOpen(false);
-        onRefresh();
+        const dates = splitDateMode 
+            ? { origin: splitDateOrigin, dest: splitDateDest }
+            : undefined;
+        
+        onMove(batch, moveLocation, q, dates);
+        setIsOpen(false);
+        setSplitDateMode(false);
+        setSplitDateOrigin(safeDate(batch.expiry_date));
+        setSplitDateDest(safeDate(batch.expiry_date));
+        setMoveLocation(''); // Resetear al terminar
     };
-
-    const handleQuickDateUpdate = async (date: Date | undefined) => {
-        const dateStr = date ? format(date, 'yyyy-MM-dd') : null;
-        await supabase.from('inventory_items').update({ expiry_date: dateStr } as any).eq('id', batch.id);
-        toast({ title: "Fecha Actualizada", description: `Nueva caducidad guardada.` });
-        setIsEditDateOpen(false);
-        onRefresh();
-    };
-
-    const isSplit = parseFloat(moveQty) < batch.quantity && parseFloat(moveQty) > 0;
 
     return (
-        <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="flex items-center gap-3">
-                <div className="text-sm font-bold text-zinc-200 bg-zinc-800 px-2 py-1 rounded min-w-[3rem] text-center">
-                    {batch.quantity} <span className="text-[10px] text-zinc-500 font-normal ml-0.5">{batch.unit}</span>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                    {/* Ubicación con Lápiz */}
-                    <div className="flex items-center gap-1 group/loc">
-                         <span className="text-xs text-zinc-400 flex items-center gap-1">
-                            <MapPin className="w-3 h-3" /> {batch.location}
-                        </span>
-                        <Popover open={isEditLocOpen} onOpenChange={setIsEditLocOpen}>
-                            <PopoverTrigger asChild>
-                                {/* Lápiz siempre visible (gris) */}
-                                <Button variant="ghost" size="icon" className="h-4 w-4 text-zinc-600 hover:text-blue-400 transition-colors">
-                                    <Pencil className="w-3 h-3" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-48 p-2 bg-zinc-950 border-zinc-700">
-                                <Label className="text-[10px] uppercase font-bold text-zinc-500 mb-2 block">Cambiar Ubicación</Label>
-                                <div className="grid gap-1">
-                                    {DEFAULT_LOCATIONS.map(l => (
-                                        <button key={l} onClick={()=>handleQuickLocUpdate(l)} className="text-left text-xs text-zinc-300 hover:bg-zinc-800 px-2 py-1 rounded">{l}</button>
-                                    ))}
-                                    <div className="flex gap-1 mt-1 border-t border-zinc-800 pt-1">
-                                        {/* Input con contraste corregido */}
-                                        <Input className="h-6 text-xs bg-zinc-900 text-white border-zinc-700" placeholder="Otra..." value={editLoc} onChange={e=>setEditLoc(e.target.value)} />
-                                        <Button size="icon" className="h-6 w-6 bg-blue-600" onClick={()=>handleQuickLocUpdate(editLoc)}><Check className="w-3 h-3"/></Button>
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-
-                    {/* Fecha con Lápiz */}
-                    <div className="flex items-center gap-1 group/date">
-                        {batch.expiry_date ? (
-                            <span className={cn("text-xs flex items-center gap-1", 
-                                differenceInDays(new Date(batch.expiry_date), new Date()) <= 5 ? "text-red-400 font-bold" : "text-green-500"
-                            )}>
-                                <CalendarIcon className="w-3 h-3" /> 
-                                {format(new Date(batch.expiry_date), 'dd/MM/yyyy')}
-                            </span>
-                        ) : (
-                            <span className="text-xs text-zinc-600 flex items-center gap-1">
-                                <CalendarIcon className="w-3 h-3" /> Sin fecha
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col gap-2 group hover:border-zinc-700 transition-colors">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                    <div className="flex flex-col">
+                        <span className="font-mono text-sm text-white font-bold">{batch.quantity} {batch.unit || 'uds'}</span>
+                        {batch.expiry_date && (
+                            <span className={cn("text-[10px] font-bold", differenceInDays(new Date(batch.expiry_date), new Date()) < 0 ? "text-red-500 animate-pulse" : "text-zinc-500")}>
+                                Cad: {format(new Date(batch.expiry_date), 'dd/MM/yy')}
                             </span>
                         )}
-                        <Popover open={isEditDateOpen} onOpenChange={setIsEditDateOpen}>
-                            <PopoverTrigger asChild>
-                                {/* Lápiz siempre visible (gris) */}
-                                <Button variant="ghost" size="icon" className="h-4 w-4 text-zinc-600 hover:text-blue-400 transition-colors">
-                                    <Pencil className="w-3 h-3" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="p-0 bg-zinc-950 border-zinc-800">
-                                <Calendar mode="single" selected={batch.expiry_date ? new Date(batch.expiry_date) : undefined} onSelect={handleQuickDateUpdate} className="bg-zinc-950 text-white"/>
-                            </PopoverContent>
-                        </Popover>
                     </div>
+                    
+                    {/* Divisor Visual */}
+                    <div className="w-px h-8 bg-zinc-600/50"></div> 
+                    
+                    <span className="text-xs text-zinc-300 flex items-center gap-1 font-medium">
+                        <MapPin className="w-3 h-3 text-blue-500"/> {batch.location || '—'}
+                    </span>
                 </div>
-            </div>
-            
-            <div className="flex items-center gap-1">
-                <Popover open={isOpen} onOpenChange={(open) => { setIsOpen(open); if(open) { setMoveQty(batch.quantity.toString()); setSplitDateMode(false); } if(!open) setIsCustomMode(false); }}>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-blue-400 h-8 w-8" title="Mover / Dividir">
-                            <ArrowRightLeft className="w-4 h-4" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-3 bg-zinc-950 border-zinc-700 text-white">
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                                <span className="text-[10px] uppercase font-bold text-zinc-400">Mover / Dividir Stock</span>
-                                {isCustomMode ? 
-                                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={()=>setIsCustomMode(false)}><X className="w-3 h-3"/></Button> 
-                                    : <Split className="w-3 h-3 text-zinc-600"/>
-                                }
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                                <Label className="text-xs shrink-0 w-16">Cantidad:</Label>
-                                <div className="flex-1 flex items-center gap-2">
-                                    <Input type="number" className="h-8 text-xs bg-zinc-900 border-zinc-700 text-right font-bold" value={moveQty} onChange={(e) => setMoveQty(e.target.value)} max={batch.quantity} min={0} />
-                                    <span className="text-xs text-zinc-500">/ {batch.quantity}</span>
+                <div className="flex gap-1">
+                    <Popover open={isOpen} onOpenChange={setIsOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400">
+                                <ArrowRightLeft className="w-4 h-4"/>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-64 p-3 bg-zinc-950 border-zinc-700">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                                    <h4 className="text-[10px] uppercase font-bold text-zinc-400">Mover Lote</h4>
                                 </div>
-                            </div>
+                                
+                                <div className="flex gap-2 items-center">
+                                    {/* CORRECCIÓN 2: text-white añadido al Input de cantidad */}
+                                    <Input 
+                                        type="number" 
+                                        className="h-8 text-xs bg-zinc-900 border-zinc-700 w-20 text-center font-bold text-white" 
+                                        value={moveQty} 
+                                        onChange={e => setMoveQty(e.target.value)} 
+                                        max={batch.quantity} 
+                                        min={1} 
+                                    />
+                                    <span className="text-xs text-zinc-500">de {batch.quantity}</span>
+                                </div>
 
-                            {/* SPLIT DATE LOGIC */}
-                            {isSplit && (
-                                <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox id="splitDate" checked={splitDateMode} onCheckedChange={(c) => setSplitDateMode(c as boolean)} className="border-zinc-600" />
-                                        <label htmlFor="splitDate" className="text-xs text-zinc-300 cursor-pointer select-none">¿Diferente caducidad?</label>
-                                    </div>
-                                    
-                                    {splitDateMode && (
-                                        <div className="grid grid-cols-2 gap-2 pt-1 animate-in slide-in-from-top-2">
-                                            <div className="space-y-1">
-                                                <Label className="text-[9px] text-zinc-500 uppercase">Origen ({Number(batch.quantity) - Number(moveQty)})</Label>
-                                                <Popover>
-                                                    <PopoverTrigger asChild><Button variant="outline" className="h-7 w-full text-[10px] justify-start px-1 border-zinc-700 bg-zinc-900 text-white">{splitDateOrigin ? format(splitDateOrigin, 'dd/MM/yy') : 'Sin fecha'}</Button></PopoverTrigger>
-                                                    <PopoverContent className="p-0"><Calendar mode="single" selected={splitDateOrigin} onSelect={setSplitDateOrigin}/></PopoverContent>
-                                                </Popover>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-[9px] text-blue-400 uppercase">Destino ({moveQty})</Label>
-                                                <Popover>
-                                                    <PopoverTrigger asChild><Button variant="outline" className="h-7 w-full text-[10px] justify-start px-1 border-blue-900/50 text-blue-200 bg-zinc-900">{splitDateDest ? format(splitDateDest, 'dd/MM/yy') : 'Sin fecha'}</Button></PopoverTrigger>
-                                                    <PopoverContent className="p-0"><Calendar mode="single" selected={splitDateDest} onSelect={setSplitDateDest}/></PopoverContent>
-                                                </Popover>
-                                            </div>
+                                <div className="flex items-center gap-2 bg-zinc-900/50 p-1 rounded border border-zinc-800">
+                                    <Checkbox checked={splitDateMode} onCheckedChange={(c: boolean) => setSplitDateMode(c)} className="h-3 w-3 border-zinc-600"/>
+                                    <span className="text-[10px] text-zinc-400 flex items-center gap-1"><Split className="w-3 h-3"/> Cambiar fechas</span>
+                                </div>
+
+                                {splitDateMode && (
+                                    <div className="grid grid-cols-2 gap-2 p-2 bg-black/20 rounded animate-in fade-in">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[9px] text-blue-400 uppercase font-bold">Fecha Origen</span>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    {/* CORRECCIÓN 3: text-white añadido al botón de fecha */}
+                                                    <Button variant="outline" className="h-7 text-[10px] px-1 border-zinc-700 bg-zinc-900 justify-start text-white">
+                                                        {splitDateOrigin ? format(splitDateOrigin, 'dd/MM') : <span className="text-zinc-600">Sin</span>}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="p-0 bg-zinc-950 border-zinc-800"><Calendar mode="single" selected={splitDateOrigin} onSelect={setSplitDateOrigin} className="bg-zinc-950 text-white"/></PopoverContent>
+                                            </Popover>
                                         </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="space-y-1">
-                                <Label className="text-xs text-zinc-400">Destino:</Label>
-                                {isCustomMode ? (
-                                    <div className="flex gap-1">
-                                        <Input value={customLoc} onChange={e=>setCustomLoc(e.target.value)} className="h-8 text-xs bg-zinc-900 border-zinc-700" placeholder="Nuevo lugar..."/>
-                                        <Button size="sm" className="h-8 w-8 p-0 bg-blue-600" onClick={()=>handleMoveClick(customLoc)}><Check className="w-3 h-3"/></Button>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-1 max-h-[120px] overflow-y-auto">
-                                        {DEFAULT_LOCATIONS.filter(l => l !== batch.location).map(loc => (
-                                            <button key={loc} onClick={() => handleMoveClick(loc)} className="text-left text-[10px] text-zinc-300 hover:bg-blue-600 hover:text-white px-2 py-1.5 rounded transition-colors truncate border border-zinc-800">{loc}</button>
-                                        ))}
-                                        <button onClick={() => setIsCustomMode(true)} className="text-left text-[10px] text-blue-400 hover:bg-blue-900/20 px-2 py-1.5 rounded transition-colors truncate border border-dashed border-zinc-700">+ Otro...</button>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[9px] text-purple-400 uppercase font-bold">Fecha Destino</span>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    {/* CORRECCIÓN 3: text-white añadido al botón de fecha */}
+                                                    <Button variant="outline" className="h-7 text-[10px] px-1 border-zinc-700 bg-zinc-900 justify-start text-white">
+                                                        {splitDateDest ? format(splitDateDest, 'dd/MM') : <span className="text-zinc-600">Sin</span>}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="p-0 bg-zinc-950 border-zinc-800"><Calendar mode="single" selected={splitDateDest} onSelect={setSplitDateDest} className="bg-zinc-950 text-white"/></PopoverContent>
+                                            </Popover>
+                                        </div>
                                     </div>
                                 )}
+
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold">Destino</Label>
+                                    <LocationAutocomplete
+                                        value={moveLocation}
+                                        onChange={setMoveLocation}
+                                        householdId={batch.household_id}
+                                        placeholder="Destino..."
+                                    />
+                                </div>
+
+                                <Button 
+                                    size="sm" 
+                                    className="h-8 bg-blue-600 hover:bg-blue-500 text-white w-full" 
+                                    onClick={handleMove}
+                                >
+                                    <Check className="w-3 h-3 mr-1"/> Confirmar Movimiento
+                                </Button>
                             </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-                <Button variant="ghost" size="icon" onClick={() => onDelete(batch.id)} className="text-zinc-600 hover:text-red-500 h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-red-900/20 hover:text-red-500 text-zinc-500" onClick={() => onDelete(batch.id)}>
+                        <Trash2 className="w-4 h-4"/>
+                    </Button>
+                </div>
             </div>
         </div>
     );
 };
 
+// --- COMPONENTE PRINCIPAL ---
 export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, householdId }) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('pantry');
-  const [receptionItems, setReceptionItems] = useState<any[]>([]);
-  const [rawInventoryItems, setRawInventoryItems] = useState<InventoryItem[]>([]);
+  const [activeTab, setActiveTab] = useState('reception');
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [groupedInventory, setGroupedInventory] = useState<any[]>([]);
+  const [rawInventoryItems, setRawInventoryItems] = useState<InventoryItem[]>([]);
+  const [receptionItems, setReceptionItems] = useState<any[]>([]);
   const [criticalAlerts, setCriticalAlerts] = useState<any[]>([]);
   const [suggestionAlerts, setSuggestionAlerts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
-  // UI DETALLE
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null); 
-  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
-  const [consumeAmount, setConsumeAmount] = useState<string>(''); 
-  const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const [editMinQty, setEditMinQty] = useState('');
-  const [editPriority, setEditPriority] = useState('');
-  const [editIsGhost, setEditIsGhost] = useState(false);
-
-  // States para Mudanza Masiva y Lotes
+  const [consumeAmount, setConsumeAmount] = useState('');
+  const [isAddBatchOpen, setIsAddBatchOpen] = useState(false);
   const [isMassCustomMode, setIsMassCustomMode] = useState(false);
   const [massCustomLoc, setMassCustomLoc] = useState('');
-  const [isAddBatchOpen, setIsAddBatchOpen] = useState(false);
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [editIsGhost, setEditIsGhost] = useState(false);
+  const [editPriority, setEditPriority] = useState<'critical'|'high'|'normal'>('normal');
+  const [editMinQty, setEditMinQty] = useState('');
 
-  const fetchData = useCallback(async () => {
+  // PEGAR ESTO ANTES DE "const fetchData"
+  const processInventory = (items: any[]) => {
+    const groupedMap = new Map<string, any>();
+    const criticals: any[] = [];
+    const suggestions: any[] = [];
+    const today = new Date();
+    const expiryThresholdDate = addDays(today, 3); 
+
+    items.forEach(item => {
+        const prod = item.product;
+        if (!prod) return; 
+        
+        const key = prod.id;
+        if (!groupedMap.has(key)) {
+            groupedMap.set(key, { 
+                product_id: prod.id,
+                name: prod.name,
+                category: prod.category,
+                unit: prod.unit,
+                importance_level: prod.importance_level,
+                min_quantity: prod.min_quantity,
+                is_ghost: prod.is_ghost,
+                total_quantity: 0, 
+                healthy_quantity: 0, 
+                expiring_quantity: 0,
+                batch_count: 0, 
+                earliest_expiry: null,
+                has_expiring_batch: false,
+                batches: []
+            });
+        }
+        const group = groupedMap.get(key)!;
+        
+        // Sumar SIEMPRE al total (Aquí es donde arreglamos el error de "0 uds")
+        group.total_quantity += item.quantity;
+        
+        if (item.quantity > 0) {
+            group.batch_count += 1;
+            group.batches.push(item);
+            const isExpiringSoon = item.expiry_date && new Date(item.expiry_date) <= expiryThresholdDate;
+            
+            if (isExpiringSoon) {
+                group.has_expiring_batch = true;
+                group.expiring_quantity += item.quantity;
+            } else {
+                group.healthy_quantity += item.quantity;
+            }
+            if (item.expiry_date && (!group.earliest_expiry || new Date(item.expiry_date) < new Date(group.earliest_expiry))) {
+                group.earliest_expiry = item.expiry_date;
+            }
+        }
+    });
+
+    // Generar Alertas (Recuperando tu lógica original que funcionaba)
+    groupedMap.forEach(group => {
+        if (group.is_ghost) return; 
+        const threshold = group.min_quantity !== null ? group.min_quantity : (group.importance_level==='critical'?4:group.importance_level==='high'?2:1);
+        
+        const isImportant = ['critical', 'high'].includes(group.importance_level);
+        const isCriticalState = isImportant && (group.total_quantity === 0 || group.healthy_quantity <= threshold);
+
+        if (isCriticalState) {
+            let reason = "Stock bajo";
+            if (group.total_quantity === 0) reason = "AGOTADO";
+            else if (group.healthy_quantity < group.total_quantity) reason = "Stock crítico por caducidad";
+            criticals.push({ ...group, reason, severity: group.importance_level });
+            return; 
+        }
+
+        if (group.expiring_quantity > 0) {
+            suggestions.push({ ...group, reason: "Caducidad próxima", severity: 'expiry' });
+        } else if (group.healthy_quantity <= threshold && group.importance_level === 'normal') {
+            suggestions.push({ ...group, reason: group.total_quantity === 0 ? "Agotado (Opcional)" : "Reponer opcional", severity: 'low_optional' });
+        }
+    });
+
+    setCriticalAlerts(criticals);
+    setSuggestionAlerts(suggestions);
+    setGroupedInventory(Array.from(groupedMap.values()));
+};
+const fetchData = useCallback(async () => {
     if (!householdId) return;
+
+    // 1. Pedimos la lista de la compra (Recepción)
     const { data: receptionData } = await supabase.from('shopping_list').select('*').eq('household_id', householdId).eq('status', 'bought').order('created_at', { ascending: false });
     if (receptionData) setReceptionItems(receptionData);
 
+    // 2. Pedimos TODO el inventario en crudo (SIN usar rpc, para evitar errores)
     const { data: inventoryData } = await supabase.from('inventory_items').select('*, product:product_definitions(*)').eq('household_id', householdId).order('expiry_date', { ascending: true });
     
     if (inventoryData) {
         setRawInventoryItems(inventoryData as InventoryItem[]);
+        // Llamamos a la calculadora manual de arriba
         processInventory(inventoryData);
     }
   }, [householdId]);
 
+ 
   useEffect(() => { if (isOpen) fetchData(); }, [isOpen, fetchData]);
 
   useEffect(() => {
-    if (selectedProduct) {
-        if (selectedProduct.product_id !== lastSelectedId) {
-            setIsEditingSettings(false);
-            setIsMassCustomMode(false);
-            setLastSelectedId(selectedProduct.product_id);
-        }
-
-        const updatedGroup = groupedInventory.find(i => i.product_id === selectedProduct.product_id);
-        if (updatedGroup && JSON.stringify(updatedGroup) !== JSON.stringify(selectedProduct)) {
-            setSelectedProduct(updatedGroup);
-        }
+    if (isOpen && lastSelectedId && !selectedProduct) {
+        const found = groupedInventory.find(i => i.product_id === lastSelectedId);
+        if (found) setSelectedProduct(found);
     }
-  }, [selectedProduct, groupedInventory, lastSelectedId]);
+  }, [isOpen, groupedInventory, lastSelectedId, selectedProduct]);
 
-  const processInventory = (items: any[]) => {
-      const groupedMap = new Map<string, any>();
-      const criticals: any[] = [];
-      const suggestions: any[] = [];
-      const today = new Date();
-      const expiryThresholdDate = addDays(today, 3); 
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct || !confirm("⚠️ BORRADO TOTAL: Eliminarás el producto y TODOS sus lotes. ¿Seguro?")) return;
+    await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+    toast({ title: "Eliminado", description: `${selectedProduct.name} y sus lotes fueron borrados.`, variant: "destructive" });
+    setSelectedProduct(null);
+    setLastSelectedId(null);
+    fetchData();
+  };
 
-      items.forEach(item => {
-          const prod = item.product;
-          if (!prod) return; 
-          
-          const key = prod.id;
-          if (!groupedMap.has(key)) {
-              groupedMap.set(key, { 
-                  product_id: prod.id,
-                  name: prod.name,
-                  category: prod.category,
-                  unit: prod.unit,
-                  importance_level: prod.importance_level,
-                  min_quantity: prod.min_quantity,
-                  is_ghost: prod.is_ghost,
-                  total_quantity: 0, 
-                  healthy_quantity: 0, 
-                  expiring_quantity: 0,
-                  batch_count: 0, 
-                  earliest_expiry: null,
-                  has_expiring_batch: false, // Flag para la UI
-                  batches: []
-              });
-          }
-          const group = groupedMap.get(key)!;
-          
-          // La cantidad total incluye todo, incluso si es 0 (virtual)
-          group.total_quantity += item.quantity;
-          
-          // Si es virtual (qty 0), no lo contamos como "lote activo" para la UI de conteo
-          if (item.quantity > 0) {
-              group.batch_count += 1;
-              group.batches.push(item);
+  const handleUpdateDefinition = async () => {
+    if (!selectedProduct) return;
+    await supabase.from('product_definitions')
+        .update({
+            is_ghost: editIsGhost,
+            importance_level: editIsGhost ? 'ghost' : editPriority,
+            min_quantity: editMinQty ? Number(editMinQty) : null
+        } as any)
+        .eq('id', selectedProduct.product_id);
+    
+    toast({ title: "Actualizado", description: "Configuración guardada." });
+    setIsEditingSettings(false);
+    fetchData();
+  };
 
-              const isExpiringSoon = item.expiry_date && new Date(item.expiry_date) <= expiryThresholdDate;
-              
-              // Flag global de caducidad para la UI principal (Calavera)
-              if (isExpiringSoon) group.has_expiring_batch = true;
+  const handleMoveBatch = async (
+    batch: InventoryItem, 
+    newLoc: string, 
+    qty: number, 
+    dates?: { origin: Date|undefined, dest: Date|undefined }
+  ) => {
+    try {
+        const originDate = dates?.origin ? format(dates.origin, 'yyyy-MM-dd') : batch.expiry_date;
+        const destDate = dates?.dest ? format(dates.dest, 'yyyy-MM-dd') : batch.expiry_date;
 
-              if (isExpiringSoon) group.expiring_quantity += item.quantity;
-              else group.healthy_quantity += item.quantity;
-              
-              if (item.expiry_date && (!group.earliest_expiry || new Date(item.expiry_date) < new Date(group.earliest_expiry))) {
-                  group.earliest_expiry = item.expiry_date;
-              }
-          }
-      });
+        if (qty >= batch.quantity) {
+            await supabase.from('inventory_items')
+                .update({ location: newLoc, expiry_date: destDate } as any)
+                .eq('id', batch.id);
+        } else {
+            await supabase.from('inventory_items')
+                .update({ quantity: batch.quantity - qty, expiry_date: originDate } as any)
+                .eq('id', batch.id);
+            await supabase.from('inventory_items').insert({
+                household_id: batch.household_id,
+                product_id: batch.product_id,
+                name: batch.name,
+                category: batch.category,
+                unit: batch.unit,
+                quantity: qty,
+                location: newLoc,
+                expiry_date: destDate
+            });
+        }
+        toast({ title: "Movido", description: `${qty} ${batch.unit || 'uds'} a ${newLoc}.` });
+        fetchData();
+    } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
 
-      groupedMap.forEach(group => {
-          if (group.is_ghost) return; 
-          const threshold = group.min_quantity !== null ? group.min_quantity : (group.importance_level==='critical'?4:group.importance_level==='high'?2:1);
-          
-          // 1. DETECTAR SI ES IMPORTANTE (Rojo o Naranja)
-          const isImportant = ['critical', 'high'].includes(group.importance_level);
-
-          // 2. LOGICA DE ALERTA CRÍTICA CORREGIDA
-          // Solo entra aquí si es Importante Y (está agotado O el stock sano es insuficiente)
-          const isCriticalState = isImportant && (group.total_quantity === 0 || group.healthy_quantity <= threshold);
-
-          if (isCriticalState) {
-              let reason = "Stock bajo";
-              if (group.total_quantity === 0) reason = "AGOTADO";
-              else if (group.healthy_quantity < group.total_quantity) reason = "Stock crítico por caducidad";
-
-              criticals.push({ ...group, reason, severity: group.importance_level });
-              return; // Si es crítico, ya no evaluamos sugerencias
-          }
-
-          // 3. LOGICA DE SUGERENCIAS (Productos Opcionales o Avisos de Caducidad)
-          
-          // A) ¿Hay algo caducando? (Aunque sobre stock o sea opcional)
-          if (group.expiring_quantity > 0) {
-              let reason = "Caducidad próxima";
-              // MEJORA: Si la caducidad hace que el stock 'sano' baje del mínimo, avisamos específicamente
-              if (group.healthy_quantity <= threshold) {
-                  reason = "Bajo por caducidad";
-              }
-              suggestions.push({ ...group, reason, severity: 'expiry' });
-              return;
-          }
-
-          // B) Opcionales con stock bajo o agotado (sin caducidad inminente)
-          if (group.healthy_quantity <= threshold && group.importance_level === 'normal') {
-              let reason = "Reponer opcional";
-              if (group.total_quantity === 0) reason = "Agotado (Opcional)";
-              
-              suggestions.push({ ...group, reason, severity: 'low_optional' });
-          }
-      });
-
-      setCriticalAlerts(criticals);
-      setSuggestionAlerts(suggestions);
-      setGroupedInventory(Array.from(groupedMap.values()));
+  const handleMoveAllBatches = async (destination: string) => {
+    if (!selectedProduct) return;
+    try {
+        const batches = rawInventoryItems.filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0);
+        for (const batch of batches) {
+            await supabase.from('inventory_items')
+                .update({ location: destination } as any)
+                .eq('id', batch.id);
+        }
+        toast({ title: "Movido", description: `Todo el stock a ${destination}.` });
+        fetchData();
+    } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
   };
 
   const handleConsume = async () => {
     if (!selectedProduct || !consumeAmount) return;
-    const amountToConsume = Number(consumeAmount);
-    if (amountToConsume <= 0) return;
+    const qty = Number(consumeAmount);
+    if (qty <= 0 || qty > selectedProduct.total_quantity) {
+        toast({ title: "Error", description: "Cantidad inválida.", variant: "destructive" });
+        return;
+    }
 
-    // Ordenar lotes por fecha de caducidad (FIFO)
-    // Ignoramos los lotes virtuales de 0 para el consumo
-    const batches = rawInventoryItems
-        .filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0)
-        .sort((a, b) => {
-             if (!a.expiry_date) return 1;
-             if (!b.expiry_date) return -1;
-             return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-        });
+    try {
+        let remaining = qty;
+        const batches = rawInventoryItems
+            .filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0)
+            .sort((a,b) => new Date(a.expiry_date || '9999').getTime() - new Date(b.expiry_date || '9999').getTime());
 
-    const totalAvailable = batches.reduce((sum, b) => sum + b.quantity, 0);
-    const willWipeOut = amountToConsume >= totalAvailable;
-    const isGhost = selectedProduct.is_ghost;
-
-    let remaining = amountToConsume;
-    
-    for (const [index, batch] of batches.entries()) {
-        if (remaining <= 0) break;
-
-        if (batch.quantity <= remaining) {
-            // Gastar lote completo
-            remaining -= batch.quantity;
-            const isLastBatch = index === batches.length - 1;
-
-            if (willWipeOut && isLastBatch) {
-                // Es el último lote y nos quedamos a 0
-                if (isGhost) {
-                    // LÓGICA GHOST: Muerte total
-                    await supabase.from('inventory_items').delete().eq('id', batch.id);
-                    await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
-                    toast({ title: "Ghost Eliminado", description: "Producto borrado del sistema." });
-                    setSelectedProduct(null); 
-                } else {
-                    // LÓGICA NORMAL (VIRTUAL BATCH): Persistencia a 0
+        for (const batch of batches) {
+            if (remaining <= 0) break;
+            if (batch.quantity >= remaining) {
+                const newQty = batch.quantity - remaining;
+                if (newQty === 0 && !selectedProduct.is_ghost) {
+                    // Persistencia a 0 (Modo Importancia)
                     await supabase.from('inventory_items')
-                       .update({ quantity: 0, expiry_date: null } as any)
-                       .eq('id', batch.id);
-                    toast({ title: "Agotado", description: `${selectedProduct.name} se queda a 0.`, variant: "destructive" });
+                        .update({ quantity: 0, expiry_date: null } as any)
+                        .eq('id', batch.id);
+                } else if (newQty === 0 && selectedProduct.is_ghost) {
+                    // Muerte Total (Modo Ghost)
+                    await supabase.from('inventory_items').delete().eq('id', batch.id);
+                } else {
+                    await supabase.from('inventory_items')
+                        .update({ quantity: newQty } as any)
+                        .eq('id', batch.id);
                 }
+                remaining = 0;
             } else {
-                // Consumo intermedio -> Borrar lote
-                await supabase.from('inventory_items').delete().eq('id', batch.id);
+                remaining -= batch.quantity;
+                if (selectedProduct.is_ghost) {
+                    // GHOST: Muerte Real
+                    await supabase.from('inventory_items').delete().eq('id', batch.id);
+                } else {
+                    // IMPORTANCIA: Persistencia a 0
+                    await supabase.from('inventory_items')
+                        .update({ quantity: 0, expiry_date: null } as any)
+                        .eq('id', batch.id);
+                }
             }
-        } else {
-            // Consumo parcial
-            const newQty = batch.quantity - remaining;
-            remaining = 0;
-            await supabase.from('inventory_items').update({ quantity: newQty } as any).eq('id', batch.id);
         }
+        
+        toast({ title: "Gastado", description: `${qty} ${selectedProduct.unit || 'uds'} consumidos.` });
+        setConsumeAmount('');
+        fetchData();
+    } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
     }
-    
-    if (!willWipeOut || (willWipeOut && !isGhost)) {
-        if (!willWipeOut) toast({ title: "Consumido", description: `-${amountToConsume} ${selectedProduct.name}` });
-    }
-    
-    setConsumeAmount('');
-    fetchData(); 
-  };
-
-  const handleUpdateDefinition = async () => {
-      if (!selectedProduct) return;
-      
-      const { error } = await supabase.from('product_definitions').update({
-          importance_level: editIsGhost ? 'ghost' : editPriority,
-          min_quantity: editMinQty === '' ? null : Number(editMinQty),
-          is_ghost: editIsGhost
-      }).eq('id', selectedProduct.product_id);
-
-      if (error) toast({ title: "Error", variant: "destructive" });
-      else {
-          toast({ title: "Actualizado", description: "Configuración guardada correctamente." });
-          setIsEditingSettings(false);
-          fetchData();
-      }
-  };
-
-  const handleMoveBatch = async (batch: InventoryItem, newLocation: string, quantityToMove: number, dates?: { origin: Date|undefined, dest: Date|undefined }) => {
-      if (!newLocation || quantityToMove <= 0) return;
-      
-      // Fecha destino
-      const destDateStr = dates?.dest ? format(dates.dest, 'yyyy-MM-dd') : batch.expiry_date;
-      // Fecha origen (si cambia)
-      const originDateStr = dates?.origin ? format(dates.origin, 'yyyy-MM-dd') : batch.expiry_date;
-
-      if (quantityToMove >= batch.quantity) {
-          // Mover TODO
-          const updates: any = { location: newLocation };
-          if (dates?.dest) updates.expiry_date = destDateStr;
-
-          await supabase.from('inventory_items').update(updates).eq('id', batch.id);
-      } else {
-          // DIVIDIR (SPLIT)
-          const remainingQty = batch.quantity - quantityToMove;
-          
-          // Actualizar lote origen
-          const updateOrigin: any = { quantity: remainingQty };
-          if (dates?.origin) updateOrigin.expiry_date = originDateStr;
-          await supabase.from('inventory_items').update(updateOrigin).eq('id', batch.id);
-          
-          // Crear lote destino
-          const { id, created_at, ...itemData } = batch; 
-          await supabase.from('inventory_items').insert({ 
-              ...itemData, 
-              quantity: quantityToMove, 
-              location: newLocation, 
-              household_id: householdId,
-              expiry_date: destDateStr
-            } as any);
-      }
-      fetchData();
-  };
-
-  const handleMoveAllBatches = async (newLocation: string) => {
-      if (!selectedProduct || !newLocation) return;
-      await supabase.from('inventory_items').update({ location: newLocation } as any).eq('product_id', selectedProduct.product_id);
-      toast({ title: "Reorganizado", description: `Todo movido a ${newLocation}.` });
-      fetchData();
-  };
-
-  // --- NUEVA FUNCIÓN: Borrado Total (Kill Switch) ---
-  const handleDeleteProduct = async () => {
-      if (!selectedProduct) return;
-      if (!confirm(`PELIGRO: ¿Eliminar "${selectedProduct.name}" y TODO su historial?\n\nEsta acción no se puede deshacer.`)) return;
-
-      try {
-          await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
-          toast({ title: "Producto Eliminado", description: "Borrado total completado." });
-          setSelectedProduct(null);
-          fetchData();
-      } catch (e) {
-          toast({ title: "Error", description: "No se pudo borrar.", variant: "destructive" });
-      }
   };
 
   // --- FUNCIÓN MODIFICADA: Borrado de Lote (Small Trash Can) ---
@@ -868,7 +801,9 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 
                  <ScrollArea className="flex-1 p-4">
                      <div className="flex items-center justify-between mb-3 px-1 border-b border-zinc-800 pb-2">
-                        <h4 className="text-xs font-bold text-zinc-500 uppercase">Desglose de Lotes</h4>
+                        <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider border-b border-blue-900/30 pb-1 mb-2">
+                            Desglose de Lotes</h4>
+                        
                         <Popover open={isMassCustomMode} onOpenChange={setIsMassCustomMode}>
                             <PopoverTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-6 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 gap-1 px-2 border border-blue-900/30">
@@ -879,24 +814,30 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center justify-between border-b border-zinc-800 pb-1 mb-1">
                                         <span className="text-[10px] uppercase font-bold text-zinc-500 px-2">Mover todo a...</span>
-                                        {massCustomLoc ? <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={()=>setMassCustomLoc('')}><X className="w-3 h-3"/></Button> : null}
                                     </div>
                                     
-                                    {massCustomLoc ? (
-                                        <div className="flex gap-1 animate-in fade-in">
-                                            <Input autoFocus value={massCustomLoc} onChange={e=>setMassCustomLoc(e.target.value)} className="h-7 text-xs bg-zinc-900 border-zinc-700" placeholder="Destino..."/>
-                                            <Button size="sm" className="h-7 w-7 p-0 bg-blue-600" onClick={()=>{handleMoveAllBatches(massCustomLoc); setIsMassCustomMode(false); setMassCustomLoc('');}}><Check className="w-3 h-3"/></Button>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 gap-1 max-h-[160px] overflow-y-auto">
-                                            {DEFAULT_LOCATIONS.map(loc => (
-                                                <button key={loc} onClick={() => {handleMoveAllBatches(loc); setIsMassCustomMode(false);}} className="text-left text-xs text-zinc-300 hover:bg-blue-600 hover:text-white px-2 py-1.5 rounded transition-colors border border-zinc-800">
-                                                    {loc}
-                                                </button>
-                                            ))}
-                                            <button onClick={() => setMassCustomLoc('custom')} className="text-left text-[10px] text-blue-400 hover:bg-blue-900/20 px-2 py-1.5 rounded transition-colors border border-dashed border-zinc-700">+ Otro...</button>
-                                        </div>
-                                    )}
+                                    <div className="px-1">
+                                        <LocationAutocomplete
+                                            value={massCustomLoc}
+                                            onChange={setMassCustomLoc}
+                                            householdId={householdId}
+                                            placeholder="Destino..."
+                                        />
+                                    </div>
+                                    <Button 
+                                        size="sm" 
+                                        className="h-7 bg-blue-600 hover:bg-blue-500 text-white text-xs mt-1 mx-1" 
+                                        onClick={() => {
+                                            if (massCustomLoc) {
+                                                handleMoveAllBatches(massCustomLoc); 
+                                                setIsMassCustomMode(false); 
+                                                setMassCustomLoc('');
+                                            }
+                                        }}
+                                        disabled={!massCustomLoc}
+                                    >
+                                        <Check className="w-3 h-3 mr-1"/> Confirmar
+                                    </Button>
                                 </div>
                             </PopoverContent>
                         </Popover>
@@ -959,7 +900,8 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 <div className="relative flex-1"><Search className="absolute left-2 top-2.5 h-4 w-4 text-zinc-500" /><Input placeholder="Buscar producto..." className="pl-8 h-9 bg-zinc-950 border-zinc-800 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/></div>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"><button onClick={() => setSelectedCategory(null)} className={cn("px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap", !selectedCategory ? "bg-white text-black" : "bg-zinc-900 border-zinc-700 text-zinc-500")}>Todo</button>{Object.keys(CATEGORY_ICONS).map(cat => { const conf = CATEGORY_ICONS[cat]; const isSel = selectedCategory === cat; return (<button key={cat} onClick={() => setSelectedCategory(isSel ? null : cat)} className={cn("flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap", isSel ? `${conf.color} border-current` : "bg-zinc-900 border-zinc-700 text-zinc-500")}>{conf.icon} {conf.label}</button>)})}</div>
             </div>
-            <ScrollArea className="flex-1 p-0 bg-zinc-950">
+            {/* ✅ FIX #2: SCROLL AREA WITH FIXED HEIGHT */}
+            <ScrollArea className="h-[calc(100vh-220px)] w-full pr-4">
                 <div className="p-3 space-y-2">
                     {filteredGroupedInventory.length === 0 ? <div className="text-center text-zinc-500 py-10 text-sm">Vacío.</div> : filteredGroupedInventory.map(item => {
                             const catConf = CATEGORY_ICONS[item.category] || CATEGORY_ICONS.Pantry;

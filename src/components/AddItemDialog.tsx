@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Save, Ghost, X, Search, Check, Settings2, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, Save, Ghost, Search, Check, Settings2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -8,21 +8,20 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from "@/components/ui/switch";
 import { ProductDefinition } from '@/lib/types';
+import { LocationAutocomplete } from './LocationAutocomplete';
 
-// MAPA DE TRADUCCIÓN
 const CATEGORY_MAP: Record<string, string> = {
   Pantry: 'Despensa', Dairy: 'Lácteos', Meat: 'Carne', Produce: 'Fresco', 
   Bakery: 'Panadería', Frozen: 'Congelados', Beverages: 'Bebidas', Household: 'Limpieza/Hogar'
 };
 
-const DEFAULT_LOCATIONS = ['Despensa', 'Nevera', 'Congelador', 'Baño', 'Limpieza'];
 const UNITS = [
   { value: 'uds', label: 'Unidades (uds)' },
   { value: 'kg', label: 'Kilogramos (kg)' },
@@ -42,38 +41,31 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- ESTADOS DE AUTOCOMPLETADO ---
   const [searchResults, setSearchResults] = useState<ProductDefinition[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductDefinition | null>(null);
 
-  // --- FORMULARIO ---
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string>('Pantry');
   const [quantity, setQuantity] = useState<string>('');
   const [price, setPrice] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   
-  // IMPORTANCIA (Solo los 3 niveles lógicos)
   const [priority, setPriority] = useState<'critical' | 'high' | 'normal'>('normal');
-  
-  // CANTIDAD MÍNIMA MANUAL (El "Cuándo")
   const [useCustomMin, setUseCustomMin] = useState(false);
   const [minQuantity, setMinQuantity] = useState<string>(''); 
 
-  const [location, setLocation] = useState('Despensa');
-  const [isCustomLocation, setIsCustomLocation] = useState(false);
+  const [location, setLocation] = useState('');
   const [unit, setUnit] = useState<'uds' | 'kg' | 'g' | 'L' | 'ml'>('uds');
   const [isGhost, setIsGhost] = useState(false);
 
   const resetForm = () => {
     setName(''); setCategory('Pantry'); setQuantity(''); setPrice('');
     setExpiryDate(undefined); setPriority('normal'); setIsGhost(false);
-    setLocation('Despensa'); setIsCustomLocation(false); setUnit('uds');
+    setLocation('Despensa'); setUnit('uds');
     setMinQuantity(''); setUseCustomMin(false); setSelectedProduct(null); setShowSuggestions(false);
   };
 
-  // Búsqueda en tiempo real
   useEffect(() => {
     const search = async () => {
       if (!name.trim() || !currentHousehold) { setSearchResults([]); return; }
@@ -92,7 +84,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
     return () => clearTimeout(timeoutId);
   }, [name, currentHousehold, selectedProduct]);
 
-  // Selección de producto existente
   const handleSelectProduct = (product: ProductDefinition) => {
     setSelectedProduct(product);
     setName(product.name);
@@ -100,10 +91,8 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
     setUnit(product.unit as any);
     setIsGhost(product.is_ghost);
 
-    // Recuperar configuración guardada
     if (!product.is_ghost) {
         setPriority(product.importance_level === 'ghost' ? 'normal' : product.importance_level as any);
-        // Si tiene un mínimo personalizado, activamos el switch y llenamos el input
         if (product.min_quantity !== null) {
             setUseCustomMin(true);
             setMinQuantity(product.min_quantity.toString());
@@ -112,7 +101,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
             setMinQuantity('');
         }
     }
-    
     setShowSuggestions(false);
   };
 
@@ -127,12 +115,7 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
     }
 
     setIsSubmitting(true);
-
-    // --- LÓGICA FINAL ---
     const finalImportance = isGhost ? 'ghost' : priority;
-    
-    // Si el switch está activo y hay valor, usamos ese (ej: 0.5 kg). 
-    // Si NO está activo, enviamos NULL para que la BD use los defectos (4, 2, 1).
     const finalMinQty = (!isGhost && useCustomMin && minQuantity) ? Number(minQuantity) : null;
 
     try {
@@ -140,7 +123,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
 
       if (selectedProduct) {
         productId = selectedProduct.id;
-        // Actualizar maestro si cambiaron configuraciones estructurales
         if (selectedProduct.importance_level !== finalImportance || 
             selectedProduct.is_ghost !== isGhost ||
             selectedProduct.min_quantity !== finalMinQty) {
@@ -151,7 +133,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
             }).eq('id', productId);
         }
       } else {
-        // Crear nuevo maestro (CEREBRO)
         const { data: newProd, error: prodError } = await supabase
           .from('product_definitions')
           .insert({
@@ -170,14 +151,12 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
         productId = newProd.id;
       }
 
-      // Insertar Lote (CUERPO)
-      // FIX CRÍTICO: Enviamos 'name', 'category' y 'unit' también aquí para satisfacer a la BD
       const { error: batchError } = await supabase.from('inventory_items').insert({
         household_id: currentHousehold.id,
-        product_id: productId, // Enlace ID
-        name: name.trim(),     // <--- NECESARIO (Legacy Support)
-        category: category,    // <--- NECESARIO (Legacy Support)
-        unit: unit,            // <--- NECESARIO (Legacy Support)
+        product_id: productId,
+        name: name.trim(),
+        category: category,
+        unit: unit,
         quantity: qty,
         location: location,
         expiry_date: expiryDate ? format(expiryDate, 'yyyy-MM-dd') : null,
@@ -199,8 +178,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
   };
 
   const isReadOnly = !!selectedProduct; 
-
-  // Helper para mostrar el texto explicativo
   const getMinPlaceholder = () => {
     if (priority === 'critical') return "Por defecto: Avisa con menos de 4";
     if (priority === 'high') return "Por defecto: Avisa con menos de 2";
@@ -250,7 +227,6 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
                   ))}
                 </div>
               )}
-              {selectedProduct && <p className="text-[10px] text-green-400 flex items-center gap-1">Producto existente detectado. Usando configuración guardada.</p>}
             </div>
 
             {/* GHOST */}
@@ -277,22 +253,16 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
                   <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-700"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                      <SelectItem value="critical">
-                          <span className="text-red-400 font-bold flex items-center gap-2">Imprescindible</span>
-                      </SelectItem>
-                      <SelectItem value="high">
-                          <span className="text-orange-400 font-medium flex items-center gap-2">P. Media</span>
-                      </SelectItem>
-                      <SelectItem value="normal">
-                          <span className="text-blue-400 flex items-center gap-2">Opcional</span>
-                      </SelectItem>
+                      <SelectItem value="critical"><span className="text-red-400 font-bold">Imprescindible</span></SelectItem>
+                      <SelectItem value="high"><span className="text-orange-400 font-medium">P. Media</span></SelectItem>
+                      <SelectItem value="normal"><span className="text-blue-400">Opcional</span></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               )}
             </div>
 
-            {/* CONFIGURACIÓN DE CANTIDAD MÍNIMA PERSONALIZADA */}
+            {/* CANTIDAD MÍNIMA */}
             {!isGhost && (
                 <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 space-y-2">
                     <div className="flex items-center justify-between">
@@ -304,19 +274,9 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
                     
                     {useCustomMin ? (
                         <div className="flex items-center gap-2 animate-in slide-in-from-top-1 fade-in">
-                            <Input 
-                                type="number" 
-                                step="0.1" 
-                                min="0"
-                                value={minQuantity} 
-                                onChange={(e) => setMinQuantity(e.target.value)} 
-                                placeholder="Ej: 0.5" 
-                                className="h-8 bg-zinc-950 border-zinc-700 text-xs w-24" 
-                                autoFocus
-                            />
+                            <Input type="number" step="0.1" min="0" value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="Ej: 0.5" className="h-8 bg-zinc-950 border-zinc-700 text-xs w-24" />
                             <div className="flex flex-col">
                                 <span className="text-xs text-zinc-300 font-bold">Avisar si baja de esto</span>
-                                <span className="text-[10px] text-zinc-500">Mantiene la prioridad {priority === 'critical' ? 'Roja' : priority === 'high' ? 'Naranja' : 'Azul'}</span>
                             </div>
                         </div>
                     ) : (
@@ -345,24 +305,16 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
               </div>
             </div>
 
-             {/* UBICACIÓN + CADUCIDAD */}
+             {/* UBICACIÓN NUEVA */}
              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>Ubicación</Label>
-                  {isCustomLocation ? (
-                     <div className="flex gap-1">
-                        <Input value={location} onChange={(e) => setLocation(e.target.value)} className="bg-zinc-900 border-blue-500/50" autoFocus placeholder="Lugar..."/>
-                        <Button size="icon" variant="ghost" type="button" onClick={() => { setIsCustomLocation(false); setLocation('Despensa'); }}><X className="w-4 h-4"/></Button>
-                     </div>
-                  ) : (
-                    <Select value={location} onValueChange={(val) => { val === 'custom' ? setIsCustomLocation(true) : setLocation(val) }}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-700"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                        {DEFAULT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
-                        <SelectItem value="custom" className="text-blue-400 font-bold">+ Otro...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <LocationAutocomplete 
+                    value={location} 
+                    onChange={setLocation} 
+                    householdId={currentHousehold?.id || ''} 
+                    placeholder="¿Dónde lo guardas?"
+                  />
                 </div>
 
                 <div className="grid gap-2">
@@ -382,13 +334,13 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) 
              </div>
           </div>
 
-          <DialogFooter>
+          <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500 text-white">
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Guardar
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
