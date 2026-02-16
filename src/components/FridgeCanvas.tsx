@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FridgeItem, InventoryItem, ProductDefinition } from '../lib/types';
 import { 
   Plus, ShoppingCart, StickyNote, AlertCircle, Info, Coffee, 
   ChevronDown, ChevronRight, Trash2, PackageSearch, AlertTriangle, 
-  ShoppingBasket, Skull, X, PanelRightOpen, PanelRightClose
+  ShoppingBasket, Skull, X, PanelRightOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,19 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
   const [newNoteText, setNewNoteText] = useState('');
   const [newNotePriority, setNewNotePriority] = useState<Priority>('normal');
   const [expandedNote, setExpandedNote] = useState<string | null>(null);
+
+  // ✅ REF PARA FIX CRASH OPPO
+  const noteInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ EFECTO FOCUS RETARDADO (Para evitar bloqueo de teclado al abrir nota)
+  useEffect(() => {
+    if (isAddingNote) {
+      const timer = setTimeout(() => {
+        noteInputRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isAddingNote]);
 
   // --- AUTOMATIZACIÓN INTELIGENTE (EL CEREBRO) ---
   const runAutomation = useCallback(async () => {
@@ -363,7 +376,13 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
         <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-zinc-900/50 flex flex-col justify-start">
           {isAddingNote && (
             <div className="bg-zinc-800 p-3 rounded-lg border border-zinc-600 shadow-lg animate-in slide-in-from-top-2">
-              <Input autoFocus placeholder="..." className="mb-3 h-9 text-sm bg-zinc-900 text-white border-zinc-600" value={newNoteText} onChange={e => setNewNoteText(e.target.value)} />
+              <Input 
+                ref={noteInputRef} // ✅ AQUI ESTA EL FIX
+                placeholder="..." 
+                className="mb-3 h-9 text-sm bg-zinc-900 text-white border-zinc-600" 
+                value={newNoteText} 
+                onChange={e => setNewNoteText(e.target.value)} 
+              />
               <div className="flex justify-between items-center">
                 <div className="flex gap-2">{(['critical','normal','low'] as Priority[]).map(p => <button key={p} onClick={()=>setNewNotePriority(p)} className={cn("w-5 h-5 rounded-full border", p==='critical'?'bg-red-500':p==='low'?'bg-zinc-500':'bg-blue-500', newNotePriority===p ? 'ring-2 ring-white':'opacity-50')}/>)}</div>
                 <div className="flex gap-2"><Button size="sm" variant="ghost" className="h-7 text-xs" onClick={()=>setIsAddingNote(false)}>X</Button><Button size="sm" className="h-7 text-xs bg-green-600" onClick={handleAddNote}>OK</Button></div>

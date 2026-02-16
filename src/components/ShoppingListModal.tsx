@@ -1,20 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingListItem, ProductDefinition } from '../lib/types'; // Importamos ProductDefinition
 import { 
   Plus, Check, Trash2, ShoppingCart, 
   Beef, Milk, Carrot, SprayCan, Package, 
   Croissant, Snowflake, Coffee,
   AlertCircle, AlertTriangle, Ghost,
-  ArrowRight, Clock, LayoutGrid, Search
+  ArrowRight, Clock, LayoutGrid, Search, X, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from '@/lib/utils';
+
+// Interfaces locales para evitar dependencias rotas
+interface ShoppingListItem {
+  id: string;
+  household_id: string;
+  item_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  status: string; // 'active', 'checked', 'bought', 'postponed'
+  priority: string;
+  is_ghost: boolean;
+  is_manual: boolean;
+  created_at: string;
+}
+
+interface ProductDefinition {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+}
 
 interface ShoppingListModalProps {
   isOpen: boolean;
@@ -35,7 +57,7 @@ const CATEGORY_ICONS: Record<string, { icon: React.ReactNode, color: string, lab
 };
 const DB_CATEGORIES = Object.keys(CATEGORY_ICONS);
 
-// MAPA DE TRADUCCIÓN INVERSO (Para mostrar en sugerencias)
+// MAPA DE TRADUCCIÓN INVERSO
 const CATEGORY_MAP: Record<string, string> = {
   Pantry: 'Despensa', Dairy: 'Lácteos', Meat: 'Carne', Produce: 'Fresco', 
   Bakery: 'Panadería', Frozen: 'Congelados', Beverages: 'Bebidas', Household: 'Limpieza'
@@ -49,8 +71,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
   const [newItemName, setNewItemName] = useState('');
   
   // FILTRO VISUAL vs CATEGORÍA DE AÑADIDO
-  const [viewFilter, setViewFilter] = useState<string | null>(null); // Null = Ver Todo
-  const [addItemCategory, setAddItemCategory] = useState<string>('Pantry'); // Categoría para el nuevo item
+  const [viewFilter, setViewFilter] = useState<string | null>(null);
+  const [addItemCategory, setAddItemCategory] = useState<string>('Pantry');
   
   const [isGhost, setIsGhost] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +85,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
   // Sincronizar filtro con categoría de añadido
   useEffect(() => {
     if (viewFilter) {
-      setAddItemCategory(viewFilter); // Si filtro por Carne, añado Carne
+      setAddItemCategory(viewFilter);
     }
   }, [viewFilter]);
 
@@ -80,17 +102,15 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
         .ilike('name', `%${newItemName}%`)
         .limit(5);
       
-      if (data) setSearchResults(data as ProductDefinition[]);
+      if (data) setSearchResults(data as unknown as ProductDefinition[]);
     };
     
-    // Debounce de 300ms
     const timeoutId = setTimeout(search, 300);
     return () => clearTimeout(timeoutId);
   }, [newItemName, householdId]);
 
   const handleSelectSuggestion = (product: ProductDefinition) => {
       setNewItemName(product.name);
-      // Auto-seleccionar la categoría del producto si no hay filtro activo
       if (!viewFilter) {
           setAddItemCategory(product.category);
       }
@@ -105,7 +125,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
       .eq('household_id', householdId)
       .not('status', 'in', '("bought","archived")') 
       .order('created_at', { ascending: false });
-    if (!error && data) setItems(data as any);
+    if (!error && data) setItems(data as unknown as ShoppingListItem[]);
   }, [householdId]);
 
   useEffect(() => {
@@ -122,30 +142,29 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
     if (!newItemName.trim() || !user) return;
     setIsLoading(true);
 
-    const tempId = crypto.randomUUID(); // ID temporal para UI
+    const tempId = crypto.randomUUID();
     const categoryToUse = viewFilter || addItemCategory;
 
-    // UI Optimista (Lo ves ya)
-    const optimisticItem: any = {
+    // UI Optimista
+    const optimisticItem: ShoppingListItem = {
       id: tempId,
       household_id: householdId,
       item_name: newItemName.trim(),
       category: categoryToUse,
       quantity: 1,
+      unit: 'uds',
       status: 'active',
       added_by: user.id,
       is_manual: true,
       is_ghost: isGhost,
-      priority: 'stocked', // Valor por defecto neutro
+      priority: 'stocked',
       created_at: new Date().toISOString()
     };
     setItems(prev => [optimisticItem, ...prev]);
 
-    // Reset Formulario INMEDIATO
     setNewItemName(''); 
     setIsGhost(false); 
-    setShowSuggestions(false); // Ocultar sugerencias
-    // No reseteamos categoría para permitir añadir varios seguidos del mismo tipo
+    setShowSuggestions(false);
 
     // Llamada DB
     const { error } = await supabase.from('shopping_list').insert({
@@ -157,41 +176,39 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
       added_by: user.id,
       is_manual: true,
       is_ghost: isGhost,
-      priority: 'stocked' // Valor por defecto neutro
+      priority: 'stocked'
     });
 
     if (error) {
-      toast({ title: "Error", description: "No se pudo guardar (¿Duplicado?).", variant: "destructive" });
-      fetchItems(); // Revertir si falló
+      toast({ title: "Error", description: "No se pudo guardar.", variant: "destructive" });
+      fetchItems();
     } else {
-      fetchItems(); // Confirmar ID real
+      fetchItems();
     }
     setIsLoading(false);
   };
 
   const handleDelete = async (id: string) => {
-    // Optimistic Delete (Borrado visual instantáneo)
     setItems(prev => prev.filter(i => i.id !== id));
     
     const { error } = await supabase.from('shopping_list').delete().eq('id', id);
     if (error) {
        toast({ title: "Error", description: "No se pudo borrar.", variant: "destructive" });
-       fetchItems(); // Recuperar si falló
+       fetchItems();
     }
   };
 
   const handlePostpone = async (id: string) => {
-    // Optimistic Update
     setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'postponed' } : i));
     await supabase.from('shopping_list').update({ status: 'postponed' } as any).eq('id', id);
     toast({ title: "Pospuesto", description: "Oculto temporalmente." });
   };
 
   const toggleItemStatus = async (item: ShoppingListItem) => {
+    // LÓGICA DE TU CÓDIGO ORIGINAL: 'active' <-> 'checked'
     let newStatus = item.status === 'active' ? 'checked' : 'active';
     if (item.status === 'postponed') newStatus = 'active';
 
-    // Optimistic Update
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: newStatus } : i));
 
     await supabase.from('shopping_list').update({ status: newStatus } as any).eq('id', item.id);
@@ -202,7 +219,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
     if (checked.length === 0) return;
     setIsLoading(true);
     
-    // Optimistic Clear
     setItems(prev => prev.filter(i => i.status !== 'checked'));
 
     const idsToUpdate = checked.map(i => i.id);
@@ -213,7 +229,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
     fetchItems();
   };
 
-  // Lógica de visualización
   const visibleItems = items.filter(i => {
       let matchesView = false;
       if (viewMode === 'active') matchesView = i.status === 'active' || i.status === 'checked';
@@ -229,39 +244,43 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-full max-w-md h-[85vh] flex flex-col p-0 gap-0">
+      {/* CSS FIX: [&>button]:hidden elimina la X duplicada */}
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-full max-w-lg h-[85vh] flex flex-col p-0 gap-0 overflow-hidden [&>button]:hidden">
         
-        {/* HEADER */}
-        <DialogHeader className="p-4 border-b border-zinc-800 bg-zinc-900 flex flex-row items-center justify-between shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-lg"><ShoppingCart className="w-5 h-5 text-green-500" /> Lista Compra</DialogTitle>
-          <div className="flex bg-zinc-800 rounded-lg p-0.5 mr-8">
-             <button onClick={()=>setViewMode('active')} className={`px-3 py-1 text-xs rounded-md transition-all ${viewMode==='active'?'bg-zinc-600 text-white font-bold':'text-zinc-400 hover:text-white'}`}>Activos</button>
-             <button onClick={()=>setViewMode('postponed')} className={`px-3 py-1 text-xs rounded-md transition-all ${viewMode==='postponed'?'bg-zinc-600 text-white font-bold':'text-zinc-400 hover:text-white'}`}>Pospuestos</button>
-          </div>
+        {/* Accesibilidad Fix */}
+        <DialogHeader className="sr-only">
+            <DialogTitle>Lista de Compra</DialogTitle>
+            <DialogDescription>Gestión de compras</DialogDescription>
         </DialogHeader>
 
-        {/* INPUT ZONA (Solo Activos) */}
+        {/* HEADER */}
+        <div className="p-4 border-b border-zinc-800 bg-zinc-900 flex flex-row items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-lg font-bold"><ShoppingCart className="w-5 h-5 text-green-500" /> Lista Compra</div>
+          <div className="flex bg-zinc-800 rounded-lg p-0.5 mr-2">
+             <button onClick={()=>setViewMode('active')} className={cn("px-3 py-1 text-xs rounded-md transition-all", viewMode==='active'?'bg-zinc-600 text-white font-bold':'text-zinc-400 hover:text-white')}>Activos</button>
+             <button onClick={()=>setViewMode('postponed')} className={cn("px-3 py-1 text-xs rounded-md transition-all", viewMode==='postponed'?'bg-zinc-600 text-white font-bold':'text-zinc-400 hover:text-white')}>Pospuestos</button>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-zinc-800 rounded-full"><X className="w-5 h-5" /></Button>
+        </div>
+
+        {/* INPUT ZONA */}
         {viewMode === 'active' && (
             <div className="p-4 bg-zinc-900 border-b border-zinc-800 shrink-0 z-10 shadow-md flex flex-col gap-3 relative">
-                
-                {/* 1. FILTROS VISUALES (Píldoras) */}
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    <button onClick={() => setViewFilter(null)} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold border transition-all whitespace-nowrap ${!viewFilter ? 'bg-white text-black border-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
+                    <button onClick={() => setViewFilter(null)} className={cn("flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold border transition-all whitespace-nowrap", !viewFilter ? 'bg-white text-black border-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:bg-zinc-800')}>
                         <LayoutGrid className="w-3 h-3" /> Todo
                     </button>
                     {DB_CATEGORIES.map(catId => { 
                         const config = CATEGORY_ICONS[catId]; 
                         return (
-                            <button key={catId} onClick={() => setViewFilter(viewFilter === catId ? null : catId)} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold border transition-all whitespace-nowrap ${viewFilter === catId ? `${config.color} border-current ring-1 ring-white/20` : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
+                            <button key={catId} onClick={() => setViewFilter(viewFilter === catId ? null : catId)} className={cn("flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold border transition-all whitespace-nowrap", viewFilter === catId ? `${config.color} border-current ring-1 ring-white/20` : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:bg-zinc-800')}>
                                 {config.icon} {config.label}
                             </button>
                         )
                     })}
                 </div>
 
-                {/* 2. BARRA DE ENTRADA */}
                 <div className="flex gap-2 relative">
-                    {/* Input Nombre con Sugerencias */}
                     <div className="flex-1 relative">
                         <Input 
                             placeholder={viewFilter ? `Añadir en ${CATEGORY_ICONS[viewFilter].label}...` : "Añadir..."} 
@@ -272,13 +291,11 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                             }} 
                             onFocus={() => setShowSuggestions(true)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddItem()} 
-                            className="bg-zinc-950 border-zinc-700 text-white w-full pr-8"
+                            className="bg-zinc-950 border-zinc-700 text-white w-full pr-8 h-10"
                             autoComplete="off"
                         />
-                        {/* Icono de búsqueda pequeño */}
                         <Search className="absolute right-3 top-3 w-4 h-4 text-zinc-600 pointer-events-none"/>
 
-                        {/* DESPLEGABLE DE SUGERENCIAS */}
                         {showSuggestions && searchResults.length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden max-h-48 overflow-y-auto">
                                 {searchResults.map(p => (
@@ -293,10 +310,9 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                         )}
                     </div>
 
-                    {/* Selector Categoría (Solo si NO hay filtro activo, para poder elegir) */}
                     {!viewFilter && (
                          <Select value={addItemCategory} onValueChange={setAddItemCategory}>
-                            <SelectTrigger className="w-[40px] px-0 justify-center bg-zinc-900 border-zinc-700 text-zinc-400" title="Categoría">
+                            <SelectTrigger className="w-[40px] px-0 justify-center bg-zinc-900 border-zinc-700 text-zinc-400 h-10" title="Categoría">
                                 {CATEGORY_ICONS[addItemCategory]?.icon || <Package className="w-4 h-4"/>}
                             </SelectTrigger>
                             <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
@@ -308,9 +324,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                             </SelectContent>
                         </Select>
                     )}
-
-                    {/* Botón Añadir */}
-                    <Button onClick={handleAddItem} disabled={isLoading} className="bg-green-600 hover:bg-green-500 px-3"><Plus className="w-4 h-4" /></Button>
+                    <Button onClick={handleAddItem} disabled={isLoading || !newItemName.trim()} className="bg-green-600 hover:bg-green-500 px-3 h-10"><Plus className="w-4 h-4" /></Button>
                 </div>
             </div>
         )}
@@ -322,29 +336,26 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
             
             {visibleItems.map(item => {
               const config = CATEGORY_ICONS[item.category] || CATEGORY_ICONS.Pantry;
-              const prio = (item as any).priority || 'stocked';
+              const prio = item.priority || 'stocked';
               
               return (
-                <div key={item.id} className={`flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border transition-all ${item.status==='checked'?'opacity-50 border-green-900/30':'border-zinc-800/50 hover:border-zinc-700'}`}>
-                  {/* Checkbox */}
+                <div key={item.id} className={cn("flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border transition-all", item.status==='checked'?'opacity-50 border-green-900/30':'border-zinc-800/50 hover:border-zinc-700')}>
                   {viewMode === 'active' ? (
-                      <button onClick={() => toggleItemStatus(item)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${item.status==='checked'?'bg-green-600 border-green-600':'border-zinc-600 hover:border-green-500'}`}>{item.status==='checked' && <Check className="w-3 h-3 text-black"/>}</button>
+                      <button onClick={() => toggleItemStatus(item)} className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all", item.status==='checked'?'bg-green-600 border-green-600':'border-zinc-600 hover:border-green-500')}>{item.status==='checked' && <Check className="w-3 h-3 text-black"/>}</button>
                   ) : (
                       <button onClick={() => toggleItemStatus(item)} className="w-6 h-6 rounded-full border-2 border-orange-500 flex items-center justify-center hover:bg-orange-500" title="Recuperar"><Plus className="w-3 h-3 text-white"/></button>
                   )}
                   
                   <div className="flex-1">
-                    <p className={`font-medium text-sm text-zinc-200 flex items-center gap-1 ${item.status==='checked'?'line-through':''}`}>
+                    <p className={cn("font-medium text-sm text-zinc-200 flex items-center gap-1", item.status==='checked' && 'line-through')}>
                       {item.item_name}
-                      {/* Mostrar indicadores de prioridad si vienen de automático */}
                       {prio === 'panic' && <AlertCircle className="w-3 h-3 text-red-500 ml-1" />}
                       {prio === 'low' && <AlertTriangle className="w-3 h-3 text-orange-500 ml-1" />}
-                      {(item as any).is_ghost && <Ghost className="w-3 h-3 text-purple-400 opacity-70" />}
+                      {item.is_ghost && <Ghost className="w-3 h-3 text-purple-400 opacity-70" />}
                     </p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${config.color} opacity-70`}>{config.label}</span>
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded opacity-70", config.color)}>{config.label}</span>
                   </div>
                   
-                  {/* Acciones */}
                   {viewMode === 'active' && <Button variant="ghost" size="sm" onClick={() => handlePostpone(item.id)} className="text-zinc-600 hover:text-orange-400 h-8 w-8 p-0" title="Posponer"><Clock className="w-4 h-4" /></Button>}
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} className="text-zinc-600 hover:text-red-500 h-8 w-8 p-0"><Trash2 className="w-4 h-4" /></Button>
                 </div>
@@ -353,6 +364,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
           </div>
         </ScrollArea>
 
+        {/* FOOTER */}
         {viewMode === 'active' && (
             <div className="p-4 bg-zinc-900 border-t border-zinc-800 shrink-0">
                 <Button className="w-full bg-blue-600 hover:bg-blue-500 font-bold flex items-center gap-2" disabled={checkedItems.length === 0 || isLoading} onClick={handleFinalizePurchase}>

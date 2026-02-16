@@ -1,59 +1,64 @@
-# ESTADO DEL PROYECTO
+# ESTADO DEL PROYECTO (v5.0 - STEALTH MODE)
+**ESTADO GLOBAL:** 🟡 BUILDING (EN CONSTRUCCIÓN)
+**FASE ACTUAL:** 1.5 - EL BÚNKER (Logística + Seguridad + i18n)
+**OBJETIVO:** Beta funcional Offline para 10 familias ("Francotiradores").
 
-## 🔄 EN PROCESO (FASE 1.5 - PROFESIONALIZACIÓN & SCALE)
-### Seguridad & Arquitectura
-- [ ] **Auditoría RLS:** Verificar que los datos están aislados por `household_id`.
-- [ ] **Roles de Sistema:** Implementar rol `superadmin` vs `user`.
-- [ ] **Onboarding:** Flujo de invitación a nuevos miembros (Link/Código).
-- [ ] **Email:** Personalización de plantillas de correo (Verificación/Bienvenida).
+---
 
-### UX/UI Profesional
-- [ ] **Routing:** Implementar sistema de rutas robusto (Login vs App).
-- [ ] **Landing Login:** Diseño de página de entrada profesional.
-- [ ] **Configuración de Cuenta:** Panel para que el usuario gestione sus datos/suscripción.
+## 🚧 EN PROCESO (WIP - PRIORIDAD ABSOLUTA)
+*(Nada sale a producción hasta que esto esté verde)*
 
-## ✅ COMPLETADO (FASE 1 - CORE DOMÉSTICO)
+### 1. Núcleo de Confianza (Roles Líquidos)
+- [ ] **DB Schema:** Migrar `profiles` para incluir `level` (INT) y `capabilities` (JSONB).
+- [ ] **RLS (Supabase):** Escribir las políticas que lean el JSONB para permitir/bloquear acciones.
+- [ ] **UI Gestión:** Panel "Semáforo" para que el Admin active permisos al vuelo.
 
-### Interfaz
-- [x] **StockModal v2:** Gestión avanzada de lotes y visualización.
-### Infraestructura & DB
-- [x] Definición de Stack (React + Tailwind + Supabase).
-- [x] Esquema de Base de Datos finalizado (`inventory_items`, `shopping_list`, `fridge_items`).
-- [x] **Blindaje SQL:** Constraints únicos para evitar duplicados en listas activas.
+### 2. Infraestructura PWA (Offline First)
+- [ ] **Service Workers:** Configurar caché agresiva (Workbox/Vite PWA).
+- [ ] **Sync Engine:** Que los cambios offline se suban solos al recuperar red.
+- [ ] **UX Fallback:** Indicadores visuales de "Sin Conexión" (modo solo lectura o escritura local).
+
+### 3. Identidad Cultural (i18n)
+- [ ] **Motor i18n:** Configurar librería (i18next o similar).
+- [ ] **Pack Nacional:** Traducciones ES, CA, GL, EU.
+- [ ] **Pack Bauhaus:** Traducción DE (Alemán técnico/corto) y ZH (Chino).
+
+---
+
+## ✅ COMPLETADO (DONE)
+*(Cimientos sólidos ya construidos)*
+
+### Infraestructura & Core
+- [x] **Stack:** React + Tailwind + Supabase definidos.
+- [x] **DB Schema:** Tablas maestras (`inventory`, `shopping_list`) finalizadas.
+- [x] **Blindaje SQL:** Constraints únicos para evitar duplicados.
+- [x] **Hotfix Móvil:** Solucionado el crash en Android Legacy (No autoFocus).
 
 ### Funcionalidad "Cerebro"
+- [x] **Gestión de Vida:** Lógica Ghost (se borra al gastarse) vs Estructural (persiste).
+- [x] **Alertas:** Motor de avisos (Rojo/Azul) según importancia.
+- [x] **Auto-Limpieza:** Borrado de lotes virtuales al reponer stock.
 
-- [x] **Automatización de Compra:** Detección automática de falta de stock (VIP < 4, Normal < 2).
-- [x] **Motor de Alertas v2:** Distinción entre "Críticos" (Rojo) y "Sugerencias/Opcionales" (Azul).
-- [x] **Gestión de Vida (Ghost vs Persistente):** Lógica de persistencia inteligente.
-- [x] **Hotfix Móvil:** Estabilidad garantizada en dispositivos antiguos.(Azul).
-- [x] **Gestión de Vida (Ghost vs Persistente):**
-  - Productos Ghost: Se autodestruyen al llegar a 0.
-  - Productos Estándar: Persisten a 0 uds (Lote Virtual) para recordar reposición.
-- [x] **Auto-Limpieza:** Borrado automático de lotes virtuales al entrar stock real.
-- [x] **Lógica FIFO:** Consumo inteligente priorizando caducidad más próxima.
+### UX/UI (Interfaz)
+- [x] **StockModal v2:** Edición in-place, mudanza de lotes y kill-switch.
+- [x] **ShoppingList:** Filtros de categoría y UI optimista.
+- [x] **FridgeCanvas:** Sistema básico de notas/imanes.
 
-### Interfaz (UX Funcional)
-- [x] **FridgeCanvas:** Visualización de notas e imanes estáticos.
-- [x] **StockModal v2 (Robustez Móvil):**
-  - Edición "In-Place" (Lápices siempre visibles).
-  - Menú de Mudanza Avanzado (Split Lotes + Cambio de fecha).
-  - Kill Switch (Borrado total de producto + histórico).
-  - **Hotfix:** Estabilidad garantizada en Android Legacy (No autoFocus).
-- [x] **ShoppingListModal:** Filtros de categoría y UI Optimista.
-- [x] **Alertas Unificadas:** Tarjetas inteligentes que combinan avisos de Stock y Caducidad.
+---
 
-- [x] **FridgeCanvas:** Visualización de notas e imanes estáticos.
-- [x] **StockModal:** Visualización agrupada (Máscara) vs Desglose por lotes.
-- [x] **ShoppingListModal:** Filtros de categoría, lógica de "Posponer" y UI Optimista.
-- [x] **Alertas Unificadas:** Tarjetas inteligentes que combinan avisos de Stock y Caducidad.
+## 📅 PENDIENTE (NEXT - EN COLA)
+*(Bloqueado hasta cerrar la sección WIP)*
 
-## 🎨 BACKLOG DE DISEÑO (PENDIENTE "POLISH")
-- [ ] **Drag & Drop:** Implementar librería para mover imanes libremente (`react-draggable`).
-- [ ] **Estética Imanes:** CSS avanzado para dar aspecto físico (sombras, rotación, texturas).
-- [ ] **Animaciones:** Transiciones suaves al abrir/cerrar modales y consumir items.
+- [ ] **Beta "Francotirador":** Generar las "Member Cards" (Imágenes) para los 10 testers.
+- [ ] **Outreach:** Enviar los 10 DMs de contacto (Estrategia Iceberg).
+- [ ] **Onboarding:** Flujo de entrada con "Manifiesto" y selección de idioma.
+- [ ] **Wishlist:** Lógica para que los Level 1 (Niños) pidan cosas sin ensuciar la lista real.
 
-## 🚧 PRÓXIMOS PASOS (FASE 2 - SOCIAL & IDENTIDAD)
-1.  **Header de Presencia:** Implementar "Llaveros" visuales en la parte superior.
-2.  **Estados de Usuario:** Lógica para cambiar estado (Casa, Trabajo, Supermercado, Ocio).
-3.  **Chats Contextuales:** Implementar sistema de mensajería asociado a la casa.
+---
+
+## ⛔ BLOQUEADO / ICEBOX (FUTURO)
+*(No tocar ni mencionar públicamente)*
+
+- [ ] **Fase 2:** Muros sociales (Persiana/Callejón).
+- [ ] **Gamificación:** Cartas, tokens y puntos.
+- [ ] **Marketing:** Campañas masivas o influencers grandes.

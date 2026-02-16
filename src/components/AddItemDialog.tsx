@@ -1,348 +1,254 @@
-import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Save, Ghost, Search, Check, Settings2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from "@/components/ui/switch";
-import { ProductDefinition } from '@/lib/types';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Loader2, Save, Ghost, Store, AlertTriangle, Info } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { LocationAutocomplete } from './LocationAutocomplete';
-
-const CATEGORY_MAP: Record<string, string> = {
-  Pantry: 'Despensa', Dairy: 'Lácteos', Meat: 'Carne', Produce: 'Fresco', 
-  Bakery: 'Panadería', Frozen: 'Congelados', Beverages: 'Bebidas', Household: 'Limpieza/Hogar'
-};
-
-const UNITS = [
-  { value: 'uds', label: 'Unidades (uds)' },
-  { value: 'kg', label: 'Kilogramos (kg)' },
-  { value: 'g', label: 'Gramos (g)' },
-  { value: 'L', label: 'Litros (L)' },
-  { value: 'ml', label: 'Mililitros (ml)' },
-];
+import { CATEGORIES, CATEGORY_CONFIG } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface AddItemDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  householdId: string;
+  onItemAdded: () => void;
   children?: React.ReactNode;
-  onItemAdded?: () => void;
 }
 
-const AddItemDialog: React.FC<AddItemDialogProps> = ({ children, onItemAdded }) => {
-  const { currentHousehold } = useAuth();
+const AddItemDialog: React.FC<AddItemDialogProps> = ({ isOpen, onOpenChange, householdId, onItemAdded, children }) => {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [searchResults, setSearchResults] = useState<ProductDefinition[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ProductDefinition | null>(null);
-
+  // Form States
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<string>('Pantry');
-  const [quantity, setQuantity] = useState<string>('');
-  const [price, setPrice] = useState<string>('');
-  const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
-  
-  const [priority, setPriority] = useState<'critical' | 'high' | 'normal'>('normal');
-  const [useCustomMin, setUseCustomMin] = useState(false);
-  const [minQuantity, setMinQuantity] = useState<string>(''); 
-
+  const [category, setCategory] = useState('');
+  const [initialQty, setInitialQty] = useState('1');
+  const [unit, setUnit] = useState('uds');
   const [location, setLocation] = useState('');
-  const [unit, setUnit] = useState<'uds' | 'kg' | 'g' | 'L' | 'ml'>('uds');
+  const [expiryDate, setExpiryDate] = useState('');
+  
+  // Lógica de Precio
+  const [priceInput, setPriceInput] = useState('');
+  const [priceType, setPriceType] = useState<'total' | 'unit'>('total');
+  const [store, setStore] = useState('');
+
+  // Configuración Producto
+  const [priority, setPriority] = useState<'critical'|'high'|'normal'>('normal');
+  const [minStock, setMinStock] = useState('');
   const [isGhost, setIsGhost] = useState(false);
 
-  const resetForm = () => {
-    setName(''); setCategory('Pantry'); setQuantity(''); setPrice('');
-    setExpiryDate(undefined); setPriority('normal'); setIsGhost(false);
-    setLocation('Despensa'); setUnit('uds');
-    setMinQuantity(''); setUseCustomMin(false); setSelectedProduct(null); setShowSuggestions(false);
-  };
-
-  useEffect(() => {
-    const search = async () => {
-      if (!name.trim() || !currentHousehold) { setSearchResults([]); return; }
-      if (selectedProduct && selectedProduct.name === name) return;
-
-      const { data } = await supabase
-        .from('product_definitions')
-        .select('*')
-        .eq('household_id', currentHousehold.id)
-        .ilike('name', `%${name}%`)
-        .limit(5);
-      
-      if (data) setSearchResults(data as ProductDefinition[]);
-    };
-    const timeoutId = setTimeout(search, 300);
-    return () => clearTimeout(timeoutId);
-  }, [name, currentHousehold, selectedProduct]);
-
-  const handleSelectProduct = (product: ProductDefinition) => {
-    setSelectedProduct(product);
-    setName(product.name);
-    setCategory(product.category);
-    setUnit(product.unit as any);
-    setIsGhost(product.is_ghost);
-
-    if (!product.is_ghost) {
-        setPriority(product.importance_level === 'ghost' ? 'normal' : product.importance_level as any);
-        if (product.min_quantity !== null) {
-            setUseCustomMin(true);
-            setMinQuantity(product.min_quantity.toString());
-        } else {
-            setUseCustomMin(false);
-            setMinQuantity('');
-        }
-    }
-    setShowSuggestions(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentHousehold) return;
-    if (!name.trim()) { toast({ title: 'Falta nombre', variant: 'destructive' }); return; }
-
-    const qty = Number(quantity);
-    if (!quantity || Number.isNaN(qty) || qty <= 0) {
-      toast({ title: 'Cantidad inválida', variant: 'destructive' }); return;
+  const handleSubmit = async () => {
+    if (!name.trim() || !category) {
+        toast({ title: "Faltan datos", description: "Nombre y categoría son obligatorios.", variant: "destructive" });
+        return;
     }
 
     setIsSubmitting(true);
-    const finalImportance = isGhost ? 'ghost' : priority;
-    const finalMinQty = (!isGhost && useCustomMin && minQuantity) ? Number(minQuantity) : null;
-
     try {
-      let productId: string;
+        let finalUnitPrice = 0;
+        const qty = parseFloat(initialQty) || 0;
+        const priceVal = parseFloat(priceInput) || 0;
 
-      if (selectedProduct) {
-        productId = selectedProduct.id;
-        if (selectedProduct.importance_level !== finalImportance || 
-            selectedProduct.is_ghost !== isGhost ||
-            selectedProduct.min_quantity !== finalMinQty) {
-            await supabase.from('product_definitions').update({
-                importance_level: finalImportance,
-                is_ghost: isGhost,
-                min_quantity: finalMinQty
-            }).eq('id', productId);
+        if (priceVal > 0 && qty > 0) {
+            finalUnitPrice = priceType === 'total' ? (priceVal / qty) : priceVal;
         }
-      } else {
-        const { data: newProd, error: prodError } = await supabase
-          .from('product_definitions')
-          .insert({
-            household_id: currentHousehold.id,
+
+        // Crear Definición
+        const { data: prodData, error: prodError } = await supabase.from('product_definitions').insert({
+            household_id: householdId,
             name: name.trim(),
             category,
             unit,
-            importance_level: finalImportance,
-            is_ghost: isGhost,
-            min_quantity: finalMinQty
-          })
-          .select()
-          .single();
+            importance_level: isGhost ? 'ghost' : priority,
+            min_quantity: (!isGhost && minStock) ? Number(minStock) : null,
+            is_ghost: isGhost
+        }).select().single();
 
         if (prodError) throw prodError;
-        productId = newProd.id;
-      }
 
-      const { error: batchError } = await supabase.from('inventory_items').insert({
-        household_id: currentHousehold.id,
-        product_id: productId,
-        name: name.trim(),
-        category: category,
-        unit: unit,
-        quantity: qty,
-        location: location,
-        expiry_date: expiryDate ? format(expiryDate, 'yyyy-MM-dd') : null,
-        price: price ? Number(price) : null
-      });
+        // Crear Lote Inicial
+        if (qty > 0) {
+            const { error: batchError } = await supabase.from('inventory_items').insert({
+                household_id: householdId,
+                product_id: prodData.id,
+                name: name.trim(),
+                category,
+                unit,
+                quantity: qty,
+                location: location || 'Despensa',
+                expiry_date: expiryDate || null,
+                price: finalUnitPrice,
+                store: store.trim() || null
+            });
+            if (batchError) throw batchError;
+        }
 
-      if (batchError) throw batchError;
+        toast({ title: "Producto creado", description: `${name} añadido al inventario.` });
+        onItemAdded();
+        
+        // Reset
+        setName(''); setCategory(''); setInitialQty('1'); setPriceInput(''); setStore(''); setLocation('');
+        onOpenChange(false);
 
-      toast({ title: 'Guardado', description: `${name} añadido a ${location}.` });
-      setOpen(false);
-      resetForm();
-      if (onItemAdded) onItemAdded();
-
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
-  const isReadOnly = !!selectedProduct; 
-  const getMinPlaceholder = () => {
-    if (priority === 'critical') return "Por defecto: Avisa con menos de 4";
-    if (priority === 'high') return "Por defecto: Avisa con menos de 2";
-    return "Por defecto: Avisa con menos de 1";
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(val) => { if(!val) resetForm(); setOpen(val); }}>
-      <DialogTrigger asChild>
-        {children || (<Button><Plus className="w-4 h-4 mr-2" /> Añadir Stock</Button>)}
-      </DialogTrigger>
-      <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Nuevo Producto</DialogTitle>
-            <DialogDescription>Añadir al inventario de casa.</DialogDescription>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        {children && <div onClick={() => onOpenChange(true)}>{children}</div>}
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Plus className="w-5 h-5 text-blue-500"/> Nuevo Producto</DialogTitle>
+                <DialogDescription className="text-zinc-500">Crea un producto y añade su primer lote.</DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            {/* NOMBRE */}
-            <div className="grid gap-2 relative">
-              <Label>Nombre</Label>
-              <div className="relative">
-                  <Input 
-                    value={name} 
-                    onChange={(e) => { 
-                        setName(e.target.value); 
-                        setSelectedProduct(null); 
-                        setShowSuggestions(true); 
-                    }} 
-                    onFocus={() => setShowSuggestions(true)}
-                    disabled={isSubmitting} 
-                    placeholder="ej. Leche" 
-                    className="bg-zinc-900 border-zinc-700 pr-10" 
-                    autoFocus
-                  />
-                  {selectedProduct ? <Check className="absolute right-3 top-3 w-4 h-4 text-green-500" /> : <Search className="absolute right-3 top-3 w-4 h-4 text-zinc-500" />}
-              </div>
-              
-              {showSuggestions && searchResults.length > 0 && !selectedProduct && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                  {searchResults.map(p => (
-                    <div key={p.id} onClick={() => handleSelectProduct(p)} className="px-3 py-2 hover:bg-zinc-800 cursor-pointer flex justify-between items-center group">
-                        <span className="text-sm font-medium text-zinc-200 group-hover:text-white">{p.name}</span>
-                        <span className="text-xs text-zinc-500">{CATEGORY_MAP[p.category] || p.category}</span>
+            <div className="space-y-4 py-2">
+                {/* BLOQUE 1: DATOS BÁSICOS */}
+                <div className="grid gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                    <div>
+                        <Label className="text-xs text-zinc-400">Nombre</Label>
+                        <Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Leche entera" className="bg-zinc-950 border-zinc-700"/>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* GHOST */}
-            <div className="flex items-center space-x-2 border p-3 rounded-md bg-purple-900/10 border-purple-500/20">
-              <Checkbox id="is-ghost" checked={isGhost} onCheckedChange={(c) => setIsGhost(c as boolean)} className="data-[state=checked]:bg-purple-600 border-purple-300"/>
-              <Label htmlFor="is-ghost" className="text-purple-300 font-medium cursor-pointer flex items-center gap-2"><Ghost className="w-4 h-4" /> Es compra de prueba (Ghost)</Label>
-            </div>
-
-            {/* CATEGORIA Y PRIORIDAD */}
-            <div className="grid grid-cols-2 gap-4">
-               <div className="grid gap-2">
-                <Label>Categoría</Label>
-                <Select value={category} onValueChange={setCategory} disabled={isReadOnly}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-[200px]">
-                    {Object.entries(CATEGORY_MAP).map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {!isGhost && (
-                <div className="grid gap-2">
-                  <Label>Importancia</Label>
-                  <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                      <SelectItem value="critical"><span className="text-red-400 font-bold">Imprescindible</span></SelectItem>
-                      <SelectItem value="high"><span className="text-orange-400 font-medium">P. Media</span></SelectItem>
-                      <SelectItem value="normal"><span className="text-blue-400">Opcional</span></SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-
-            {/* CANTIDAD MÍNIMA */}
-            {!isGhost && (
-                <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="custom-min" className="text-xs text-zinc-400 flex items-center gap-2 cursor-pointer">
-                            <Settings2 className="w-3 h-3"/> Personalizar aviso de stock
-                        </Label>
-                        <Switch id="custom-min" checked={useCustomMin} onCheckedChange={setUseCustomMin} className="scale-75 data-[state=checked]:bg-blue-600"/>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <Label className="text-xs text-zinc-400">Categoría</Label>
+                            <Select value={category} onValueChange={setCategory}>
+                                <SelectTrigger className="bg-zinc-950 border-zinc-700"><SelectValue placeholder="Seleccionar..."/></SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-[200px]">
+                                    {CATEGORIES.map(cat => (
+                                        <SelectItem key={cat} value={cat}>
+                                            <div className="flex items-center gap-2">{React.createElement(CATEGORY_CONFIG[cat].icon, { className: "w-3 h-3" })} {CATEGORY_CONFIG[cat].label}</div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-xs text-zinc-400">Unidad</Label>
+                            <Select value={unit} onValueChange={setUnit}>
+                                <SelectTrigger className="bg-zinc-950 border-zinc-700"><SelectValue/></SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                    {['uds', 'kg', 'g', 'L', 'ml'].map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    
-                    {useCustomMin ? (
-                        <div className="flex items-center gap-2 animate-in slide-in-from-top-1 fade-in">
-                            <Input type="number" step="0.1" min="0" value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="Ej: 0.5" className="h-8 bg-zinc-950 border-zinc-700 text-xs w-24" />
-                            <div className="flex flex-col">
-                                <span className="text-xs text-zinc-300 font-bold">Avisar si baja de esto</span>
+                </div>
+
+                {/* BLOQUE 2: DETALLES DEL LOTE */}
+                <div className="p-3 bg-zinc-900/50 rounded-lg border border-zinc-800 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <Label className="text-xs text-zinc-400">Cantidad Inicial</Label>
+                            <Input type="number" value={initialQty} onChange={e=>setInitialQty(e.target.value)} className="bg-zinc-950 border-zinc-700 font-bold text-center"/>
+                        </div>
+                        <div>
+                            <Label className="text-xs text-zinc-400">Precio</Label>
+                            <div className="flex gap-1">
+                                <Input type="number" placeholder="0.00" value={priceInput} onChange={e=>setPriceInput(e.target.value)} className="bg-zinc-950 border-zinc-700 text-right flex-1"/>
+                                <Select value={priceType} onValueChange={(v:any)=>setPriceType(v)}>
+                                    <SelectTrigger className="w-[85px] bg-zinc-900 border-zinc-700 text-xs px-2"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                        <SelectItem value="total" className="text-xs">€ Tot</SelectItem>
+                                        <SelectItem value="unit" className="text-xs">€/ud</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
-                    ) : (
-                        <p className="text-[10px] text-zinc-500 pl-5 italic">{getMinPlaceholder()}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                            <Label className="text-xs text-zinc-400">Tienda (Opcional)</Label>
+                            <div className="relative">
+                                <Store className="absolute left-3 top-2.5 w-4 h-4 text-zinc-600"/>
+                                <Input value={store} onChange={e=>setStore(e.target.value)} placeholder="Mercadona, Carrefour..." className="bg-zinc-950 border-zinc-700 pl-9"/>
+                            </div>
+                        </div>
+                        <div>
+                            <Label className="text-xs text-zinc-400">Ubicación</Label>
+                            <LocationAutocomplete householdId={householdId} value={location} onChange={setLocation} placeholder="¿Dónde va?"/>
+                        </div>
+                        <div>
+                            <Label className="text-xs text-zinc-400">Caducidad</Label>
+                            <Input type="date" value={expiryDate} onChange={e=>setExpiryDate(e.target.value)} className="bg-zinc-950 border-zinc-700 block"/>
+                        </div>
+                    </div>
+                </div>
+
+                {/* BLOQUE 3: CONTROL DE STOCK (DISEÑO UNIFICADO CON EDIT PRODUCT) */}
+                <div className="space-y-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800 transition-all">
+                    
+                    {/* CABECERA: TITULO + SWITCH GHOST ENCAPSULADO */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-bold flex items-center gap-2 text-zinc-200">
+                                <AlertTriangle className="w-4 h-4 text-blue-400"/>
+                                Control de Stock
+                            </span>
+                            <span className="text-[10px] text-zinc-500">
+                                Configuración de alertas
+                            </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-700 rounded-full pl-3 pr-1 py-1">
+                            <span className={cn("text-[10px] font-bold uppercase", isGhost ? "text-purple-400" : "text-zinc-500")}>
+                                Modo Ghost
+                            </span>
+                            <Switch checked={isGhost} onCheckedChange={setIsGhost} className="data-[state=checked]:bg-purple-600 scale-75 origin-right"/>
+                        </div>
+                    </div>
+                    
+                    {/* CAJA EXPLICATIVA */}
+                    <div className={cn("flex gap-2 items-start p-2 rounded border transition-colors", isGhost ? "bg-purple-900/10 border-purple-500/20" : "bg-blue-900/10 border-blue-500/20")}>
+                        <Info className={cn("w-4 h-4 shrink-0 mt-0.5", isGhost ? "text-purple-400" : "text-blue-400")}/>
+                        <span className={cn("text-[10px] leading-tight", isGhost ? "text-purple-200" : "text-blue-200")}>
+                            {isGhost 
+                                ? "Producto oculto en alertas. Útil para caprichos o items que no necesitas reponer obligatoriamente." 
+                                : "El sistema te avisará automáticamente cuando el stock baje del mínimo definido abajo."}
+                        </span>
+                    </div>
+
+                    {/* SELECTORES DE PRIORIDAD (IDÉNTICOS A EDIT PRODUCT) */}
+                    {!isGhost && (
+                        <div className="grid grid-cols-2 gap-3 pt-1 animate-in fade-in slide-in-from-top-1">
+                            <div className="grid gap-1.5">
+                                <Label className="text-[10px] font-bold text-zinc-500 uppercase">Prioridad</Label>
+                                <Select value={priority} onValueChange={(v:any) => setPriority(v)}>
+                                    <SelectTrigger className="bg-zinc-950 border-zinc-700 h-8 text-xs"><SelectValue/></SelectTrigger>
+                                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                        <SelectItem value="critical" className="text-red-400">🔴 Vital</SelectItem>
+                                        <SelectItem value="high" className="text-orange-400">🟠 Alta</SelectItem>
+                                        <SelectItem value="normal" className="text-blue-400">🔵 Normal</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label className="text-[10px] font-bold text-zinc-500 uppercase">Mínimo</Label>
+                                <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="bg-zinc-950 border-zinc-700 h-8 text-xs" placeholder="Ej: 2"/>
+                            </div>
+                        </div>
                     )}
                 </div>
-            )}
-
-            {/* CANTIDAD + UNIDAD */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Cantidad</Label>
-                <div className="flex gap-2">
-                    <Input type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" className="bg-zinc-900 border-zinc-700 flex-1" />
-                    <Select value={unit} onValueChange={(v:any) => setUnit(v)} disabled={isReadOnly}>
-                        <SelectTrigger className="w-[80px] bg-zinc-900 border-zinc-700 px-2"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-800 text-white min-w-[120px]">
-                            {UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.value}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
-               <div className="grid gap-2">
-                <Label>Precio (€)</Label>
-                <Input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" className="bg-zinc-900 border-zinc-700" />
-              </div>
             </div>
 
-             {/* UBICACIÓN NUEVA */}
-             <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Ubicación</Label>
-                  <LocationAutocomplete 
-                    value={location} 
-                    onChange={setLocation} 
-                    householdId={currentHousehold?.id || ''} 
-                    placeholder="¿Dónde lo guardas?"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Caducidad</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('justify-start text-left font-normal bg-zinc-900 border-zinc-700', !expiryDate && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {expiryDate ? format(expiryDate, 'P') : 'Sin fecha'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-zinc-950 border-zinc-800 text-white">
-                       <Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} initialFocus className="bg-zinc-950 text-zinc-100 rounded-md border border-zinc-800"/>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-             </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500 text-white">
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Guardar
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500">
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4 mr-2"/>}
+                    Guardar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
     </Dialog>
   );
 };

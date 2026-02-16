@@ -1,5 +1,4 @@
 import type { Database } from '@/integrations/supabase/types';
-import { Fish, Apple, Beef, Milk, ShoppingBag, Snowflake, Coffee, Home, Leaf, SprayCan } from 'lucide-react';
 
 // --- 1. CORE TYPES ---
 export type UiMode = Database['public']['Enums']['ui_mode_type'];
@@ -33,7 +32,7 @@ export interface InventoryItem {
   quantity: number;
   expiry_date: string | null;
   location: string;
-  price?: number | null; // ✅ NUEVO CAMPO AÑADIDO
+  price?: number | null;
   created_at: string;
   
   // JOIN: Opcional para facilitar lectura en frontend
@@ -65,79 +64,7 @@ export type FridgeItem = Database['public']['Tables']['fridge_items']['Row'] & {
   content?: string | null; 
 };
 
-// --- 4. CATEGORÍAS ACTUALIZADAS (ESPAÑOL) ---
-export const CATEGORY_CONFIG = {
-  Dairy: { 
-    label: 'Lácteos', 
-    icon: Milk, 
-    color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' 
-  },
-  Meat: { 
-    label: 'Carnes', 
-    icon: Beef, 
-    color: 'bg-red-500/10 text-red-400 border-red-500/30' 
-  },
-  Fish: { // ✅ NUEVO
-    label: 'Pescado', 
-    icon: Fish, 
-    color: 'bg-teal-500/10 text-teal-400 border-teal-500/30' 
-  },
-  Produce: { // ✅ RENOMBRADO
-    label: 'Frescos y Verdura', 
-    icon: Leaf, 
-    color: 'bg-green-500/10 text-green-400 border-green-500/30' 
-  },
-  Fruit: { // ✅ NUEVO
-    label: 'Frutas', 
-    icon: Apple, 
-    color: 'bg-orange-500/10 text-orange-400 border-orange-500/30' 
-  },
-  Bakery: { 
-    label: 'Pan y Bollería', 
-    icon: ShoppingBag, 
-    color: 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
-  },
-  Pantry: { 
-    label: 'Despensa', 
-    icon: Home, 
-    color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' 
-  },
-  Frozen: { 
-    label: 'Congelados', 
-    icon: Snowflake, 
-    color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' 
-  },
-  Beverages: { 
-    label: 'Bebidas', 
-    icon: Coffee, 
-    color: 'bg-purple-500/10 text-purple-400 border-purple-500/30' 
-  },
-  PersonalCare: { // ✅ NUEVO
-    label: 'Higiene Personal', 
-    icon: SprayCan, 
-    color: 'bg-pink-500/10 text-pink-400 border-pink-500/30' 
-  },
-  Household: { 
-    label: 'Limpieza y Hogar', 
-    icon: Home, 
-    color: 'bg-gray-500/10 text-gray-400 border-gray-500/30' 
-  },
-} as const;
-
-export const CATEGORIES = Object.keys(CATEGORY_CONFIG) as (keyof typeof CATEGORY_CONFIG)[];
-
-// Helper: Safe date parsing
-export function safeDate(dateStr: string | null | undefined): Date | undefined {
-  if (!dateStr) return undefined;
-  try {
-    const parsed = new Date(dateStr);
-    return isNaN(parsed.getTime()) ? undefined : parsed;
-  } catch {
-    return undefined;
-  }
-}
-
-// --- 5. FASE 2: SOCIAL SPACES & GRAFFITI (RESTAURADO) ---
+// --- 4. FASE 2: SOCIAL SPACES & GRAFFITI (RESTAURADO) ---
 export interface SocialSpace {
   id: string;
   owner_id: string | null;
@@ -157,7 +84,7 @@ export interface GraffitiLayer {
   created_at: string;
 }
 
-// --- 6. FASE 2: P2P MEDIA (RESTAURADO) ---
+// --- 5. FASE 2: P2P MEDIA (RESTAURADO) ---
 export interface MediaTransfer {
   id: string;
   sender_id: string;
@@ -168,7 +95,7 @@ export interface MediaTransfer {
   expires_at: string;
 }
 
-// --- 7. EXTRAS / INSERTS ---
+// --- 6. EXTRAS / INSERTS ---
 export type InventoryItemInsert = Database['public']['Tables']['inventory_items']['Insert'];
 export type ProductDefinitionInsert = Database['public']['Tables']['product_definitions']['Insert'];
 export type FridgeItemInsert = Database['public']['Tables']['fridge_items']['Insert'];

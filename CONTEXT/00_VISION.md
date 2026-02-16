@@ -1,6 +1,12 @@
 # AXON OS: VISIÓN MAESTRA (v3.2)
 > "Coste Cero. Fricción Cero. Sinceridad Absoluta."
 
+## 🔒 PROTOCOLO DE SIGILO (STEALTH MODE)
+**ESTADO DE ALERTA: ACTIVO.**
+Bajo ninguna circunstancia se revelarán las mecánicas de "Economía de Tokens", "Fricción Educativa" o "Gamificación" en comunicaciones públicas.
+**Narrativa Pública:** "Somos una herramienta de gestión de stock offline, privada y segura."
+**Narrativa Interna:** "Estamos construyendo el Sistema Operativo del Hogar."
+
 ## 1. MANIFIESTO DEL PRODUCTO
 Axon no es una app de tareas; es un Sistema Operativo para la convivencia familiar.
 - **Filosofía:** No vendemos datos. No usamos servidores caros. Usamos el ingenio.

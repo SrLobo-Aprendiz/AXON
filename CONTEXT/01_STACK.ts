@@ -4,16 +4,97 @@
 export type Role = 'admin' | 'parent' | 'member' | 'guest';
 export type SecurityLevel = 1 | 2 | 3 | 4;
 
-// --- CORE ---
+// AXON OS: TYPE DEFINITIONS (v6.0 - Liquid Trust & Age Presets)
+// Use this reference for all DB Schema operations.
+
+// --- CORE IDENTITY: LEVELS & CAPABILITIES ---
+
+// 1. LOS NIVELES (El "Container" Psicológico)
+// Define la Interfaz (UI) y el filtro de contenido automático.
+export enum UserLevel {
+  // LEVEL 0: OBSERVER (Abuelos/Invitados)
+  // UI: Accesible, alto contraste. Sin gestión de configuración.
+  OBSERVER = 0,
+
+  // LEVEL 1: KIDS (6 - 10 años) | Etapa: Operaciones Concretas
+  // UI: Gamificada, botones grandes, visual. 
+  // Filtro: Solo ve Stock básico. No ve precios ni config.
+  KID = 1,
+
+  // LEVEL 2: TEENS (11 - 15 años) | Etapa: Identidad/Stealth
+  // UI: Modo "Hacker/Pro". Oscura. Cero infantilización.
+  // Filtro: Ve Stock completo + Wishlist propia.
+  TEEN = 2,
+
+  // LEVEL 3: JUNIOR (16 - 18+ años) | Etapa: Pre-Autonomía
+  // UI: Estándar (Igual a Admin).
+  // Filtro: Ve finanzas (si se activa) y gestión global.
+  JUNIOR = 3,
+
+  // LEVEL 4: HEAD (Padres/Tutores)
+  // UI: God Mode (Configuración total).
+  PARENT = 4
+}
+
+// 2. LAS CAPACIDADES (Los "Interruptores" Líquidos)
+// Estos booleanos prevalecen sobre el Nivel. 
+// Permiten excepciones (ej. Un niño de 9 años que SÍ cocina).
+// Se almacenan como JSONB en la base de datos.
+export interface Capabilities {
+  // STOCK & LISTAS
+  can_read_stock: boolean;    // Ver qué hay
+  can_add_stock: boolean;     // Pedir cosas
+  can_delete_stock: boolean;  // ¡PELIGROSO! (Borrar items)
+  can_edit_pantry: boolean;   // Mover items, cambiar caducidad
+  
+  // GESTIÓN DEL HOGAR
+  can_manage_finance: boolean; // Ver precios/gastos (Para Level 3+)
+  can_invite_users: boolean;   // Generar códigos QR
+  can_manage_settings: boolean;// Cambiar nombre de casa, wifi, etc.
+}
+
+// 3. EL PERFIL DE USUARIO
 export interface Profile {
   id: string; // UUID
   household_id: string | null;
   username: string;
-  role: Role;
-  security_level: SecurityLevel;
-  credits: number; // Axon Points
-  avatar_svg: string; // JSON/SVG string, no images
+  avatar_svg: string; // JSON/SVG string
+  
+  // LA ESTRUCTURA
+  level: UserLevel;        // Define la UI y Defaults (Jerarquía)
+  capabilities: Capabilities; // Define los Permisos Reales (Operativa)
+  
+  // LA CULTURA
+  language: 'es' | 'ca' | 'gl' | 'eu' | 'en' | 'de' | 'zh' | 'pt';
+  
+  credits: number; // Axon Points (Hidden in Stealth Mode)
 }
+
+// --- PHASE 1: INVENTORY (SMART STOCK) ---
+export type ImportanceLevel = 'critical' | 'high' | 'normal' | 'ghost';
+
+export interface ProductDefinition {
+  id: string;
+  household_id: string;
+  name: string;
+  category: string; 
+  unit: string; 
+  importance_level: ImportanceLevel; 
+  min_quantity: number | null; 
+  is_ghost: boolean; 
+}
+
+export interface InventoryItem {
+  id: string;
+  product_id: string; 
+  household_id: string;
+  quantity: number;
+  location: string; 
+  expiry_date: string | null; 
+  created_at: string;
+}
+
+// ... (Resto de interfaces Fridge, Social, etc. se mantienen igual por ahora)
 
 // --- PHASE 1: FRIDGE (LAYERS) ---
 export interface FridgeItem {
