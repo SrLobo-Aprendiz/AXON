@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Plus, Check, Trash2, ShoppingCart, 
-  Beef, Milk, Carrot, SprayCan, Package, 
-  Croissant, Snowflake, Coffee,
+  Beef, Milk, SprayCan, 
+  Snowflake, Coffee,
   AlertCircle, AlertTriangle, Ghost,
-  ArrowRight, Clock, LayoutGrid, Search, X, Loader2
+  ArrowRight, Clock, LayoutGrid, Search, X, Loader2,
+  Fish, Sparkles, Apple, Leaf, ShoppingBag, Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,23 +45,27 @@ interface ShoppingListModalProps {
   householdId: string;
 }
 
-// Configuración de Categorías (Español)
+// Configuración de Categorías (Español) - Sincronizado con types.ts
 const CATEGORY_ICONS: Record<string, { icon: React.ReactNode, color: string, label: string }> = {
-  Meat: { icon: <Beef className="w-4 h-4"/>, color: 'bg-red-500/20 text-red-300', label: 'Carne' },
-  Dairy: { icon: <Milk className="w-4 h-4"/>, color: 'bg-blue-500/20 text-blue-300', label: 'Lácteos' },
-  Produce: { icon: <Carrot className="w-4 h-4"/>, color: 'bg-green-500/20 text-green-300', label: 'Fresco' },
-  Bakery: { icon: <Croissant className="w-4 h-4"/>, color: 'bg-yellow-500/20 text-yellow-300', label: 'Panadería' },
-  Frozen: { icon: <Snowflake className="w-4 h-4"/>, color: 'bg-cyan-500/20 text-cyan-300', label: 'Congelados' },
-  Beverages: { icon: <Coffee className="w-4 h-4"/>, color: 'bg-amber-500/20 text-amber-300', label: 'Bebidas' },
-  Household: { icon: <SprayCan className="w-4 h-4"/>, color: 'bg-purple-500/20 text-purple-300', label: 'Hogar/Limp.' },
-  Pantry: { icon: <Package className="w-4 h-4"/>, color: 'bg-zinc-500/20 text-zinc-300', label: 'Despensa' },
+  Dairy: { icon: <Milk className="w-4 h-4"/>, color: 'bg-blue-500/10 text-blue-400', label: 'Lácteos' },
+  Meat: { icon: <Beef className="w-4 h-4"/>, color: 'bg-red-500/10 text-red-400', label: 'Carnes' },
+  Fish: { icon: <Fish className="w-4 h-4"/>, color: 'bg-teal-500/10 text-teal-400', label: 'Pescado' },
+  Produce: { icon: <Leaf className="w-4 h-4"/>, color: 'bg-green-500/10 text-green-400', label: 'Frescos y Verdura' },
+  Fruit: { icon: <Apple className="w-4 h-4"/>, color: 'bg-orange-500/10 text-orange-400', label: 'Frutas' },
+  Bakery: { icon: <ShoppingBag className="w-4 h-4"/>, color: 'bg-amber-500/10 text-amber-400', label: 'Pan y Bollería' },
+  Pantry: { icon: <Home className="w-4 h-4"/>, color: 'bg-yellow-500/10 text-yellow-400', label: 'Despensa' },
+  Frozen: { icon: <Snowflake className="w-4 h-4"/>, color: 'bg-cyan-500/10 text-cyan-400', label: 'Congelados' },
+  Beverages: { icon: <Coffee className="w-4 h-4"/>, color: 'bg-purple-500/10 text-purple-400', label: 'Bebidas' },
+  PersonalCare: { icon: <SprayCan className="w-4 h-4"/>, color: 'bg-pink-500/10 text-pink-400', label: 'Higiene Personal' },
+  Household: { icon: <Home className="w-4 h-4"/>, color: 'bg-gray-500/10 text-gray-400', label: 'Limpieza y Hogar' },
 };
 const DB_CATEGORIES = Object.keys(CATEGORY_ICONS);
 
 // MAPA DE TRADUCCIÓN INVERSO
 const CATEGORY_MAP: Record<string, string> = {
-  Pantry: 'Despensa', Dairy: 'Lácteos', Meat: 'Carne', Produce: 'Fresco', 
-  Bakery: 'Panadería', Frozen: 'Congelados', Beverages: 'Bebidas', Household: 'Limpieza'
+  Dairy: 'Lácteos', Meat: 'Carnes', Fish: 'Pescado', Produce: 'Frescos y Verdura', 
+  Fruit: 'Frutas', Bakery: 'Pan y Bollería', Pantry: 'Despensa', Frozen: 'Congelados', 
+  Beverages: 'Bebidas', PersonalCare: 'Higiene Personal', Household: 'Limpieza y Hogar'
 };
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, onClose, householdId }) => {

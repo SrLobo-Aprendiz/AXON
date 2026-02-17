@@ -485,7 +485,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
       </Dialog>
 
       <EditProductDialog product={selectedProduct} isOpen={showEditDialog} onOpenChange={setShowEditDialog} onUpdated={fetchData} />
-      {selectedProduct && <AddBatchDialog product={selectedProduct} isOpen={isAddBatchOpen} onOpenChange={setIsAddBatchOpen} onBatchAdded={handleBatchAddedManual} />}
+      {selectedProduct && <AddBatchDialog product={selectedProduct} isOpen={isAddBatchOpen} onOpenChange={setIsAddBatchOpen} onBatchAdded={handleBatchAddedManual} householdId={householdId} />} 
       
       {/* DIÁLOGO CONFIRMACIÓN BORRAR */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
