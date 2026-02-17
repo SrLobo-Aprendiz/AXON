@@ -1,84 +1,58 @@
-// AXON OS: TYPE DEFINITIONS (v3.2)
-// Use this reference for all DB Schema operations.
-
-export type Role = 'admin' | 'parent' | 'member' | 'guest';
-export type SecurityLevel = 1 | 2 | 3 | 4;
-
-// AXON OS: TYPE DEFINITIONS (v6.0 - Liquid Trust & Age Presets)
-// Use this reference for all DB Schema operations.
+// AXON OS: TYPE DEFINITIONS (v6.1 - Hybrid Model & Price Awareness)
 
 // --- CORE IDENTITY: LEVELS & CAPABILITIES ---
-
-// 1. LOS NIVELES (El "Container" Psicológico)
-// Define la Interfaz (UI) y el filtro de contenido automático.
 export enum UserLevel {
-  // LEVEL 0: OBSERVER (Abuelos/Invitados)
-  // UI: Accesible, alto contraste. Sin gestión de configuración.
-  OBSERVER = 0,
-
-  // LEVEL 1: KIDS (6 - 10 años) | Etapa: Operaciones Concretas
-  // UI: Gamificada, botones grandes, visual. 
-  // Filtro: Solo ve Stock básico. No ve precios ni config.
-  KID = 1,
-
-  // LEVEL 2: TEENS (11 - 15 años) | Etapa: Identidad/Stealth
-  // UI: Modo "Hacker/Pro". Oscura. Cero infantilización.
-  // Filtro: Ve Stock completo + Wishlist propia.
-  TEEN = 2,
-
-  // LEVEL 3: JUNIOR (16 - 18+ años) | Etapa: Pre-Autonomía
-  // UI: Estándar (Igual a Admin).
-  // Filtro: Ve finanzas (si se activa) y gestión global.
-  JUNIOR = 3,
-
-  // LEVEL 4: HEAD (Padres/Tutores)
-  // UI: God Mode (Configuración total).
-  PARENT = 4
+  OBSERVER = 0, // Abuelos/Invitados - UI Accesible
+  KID = 1,      // 6-10 años - Operaciones Concretas / Gamificado
+  TEEN = 2,     // 11-15 años - Identidad / Modo Stealth (Hacker)
+  JUNIOR = 3,   // 16-18+ años - Pre-Autonomía / Acceso a Finanzas
+  PARENT = 4    // Heads - Control Total
 }
 
-// 2. LAS CAPACIDADES (Los "Interruptores" Líquidos)
-// Estos booleanos prevalecen sobre el Nivel. 
-// Permiten excepciones (ej. Un niño de 9 años que SÍ cocina).
-// Se almacenan como JSONB en la base de datos.
 export interface Capabilities {
-  // STOCK & LISTAS
-  can_read_stock: boolean;    // Ver qué hay
-  can_add_stock: boolean;     // Pedir cosas
-  can_delete_stock: boolean;  // ¡PELIGROSO! (Borrar items)
-  can_edit_pantry: boolean;   // Mover items, cambiar caducidad
-  
-  // GESTIÓN DEL HOGAR
-  can_manage_finance: boolean; // Ver precios/gastos (Para Level 3+)
-  can_invite_users: boolean;   // Generar códigos QR
-  can_manage_settings: boolean;// Cambiar nombre de casa, wifi, etc.
+  can_read_stock: boolean;
+  can_add_stock: boolean;
+  can_delete_stock: boolean; // El "Dedo Rápido"
+  can_edit_pantry: boolean;
+  can_manage_finance: boolean; // Ver precios y comparativas
+  can_invite_users: boolean;
+  can_manage_settings: boolean;
 }
 
-// 3. EL PERFIL DE USUARIO
 export interface Profile {
-  id: string; // UUID
+  id: string; 
   household_id: string | null;
   username: string;
-  avatar_svg: string; // JSON/SVG string
-  
-  // LA ESTRUCTURA
-  level: UserLevel;        // Define la UI y Defaults (Jerarquía)
-  capabilities: Capabilities; // Define los Permisos Reales (Operativa)
-  
-  // LA CULTURA
+  avatar_svg: string;
+  level: UserLevel;
+  capabilities: Capabilities;
   language: 'es' | 'ca' | 'gl' | 'eu' | 'en' | 'de' | 'zh' | 'pt';
-  
-  credits: number; // Axon Points (Hidden in Stealth Mode)
+  credits: number; 
 }
 
-// --- PHASE 1: INVENTORY (SMART STOCK) ---
+// --- PHASE 1: INVENTORY & SSoT ---
+
+// Categorías SSoT (Única fuente de verdad)
+export type Category = 
+  | 'Frescos y Verdura' // Renombrado de Produce
+  | 'Carnicería'
+  | 'Pescado'           // Nueva
+  | 'Lácteos'
+  | 'Despensa'
+  | 'Congelados'
+  | 'Bebidas'
+  | 'Limpieza'
+  | 'Higiene Personal'  // Nueva
+  | 'Mascotas';
+
 export type ImportanceLevel = 'critical' | 'high' | 'normal' | 'ghost';
 
 export interface ProductDefinition {
   id: string;
   household_id: string;
   name: string;
-  category: string; 
-  unit: string; 
+  category: Category; 
+  unit: 'uds' | 'kg' | 'L'; 
   importance_level: ImportanceLevel; 
   min_quantity: number | null; 
   is_ghost: boolean; 
@@ -89,12 +63,20 @@ export interface InventoryItem {
   product_id: string; 
   household_id: string;
   quantity: number;
-  location: string; 
+  location: string;
+  store: string;        // Añadido para comparativa futura
+  price: number;        // Precio unitario normalizado
+  price_type: 'unit' | 'total';
+  
+  // Modelo Híbrido: Redundancia para auditoría histórica
+  name_snapshot: string; 
+  category_snapshot: Category;
+  
   expiry_date: string | null; 
   created_at: string;
 }
 
-// ... (Resto de interfaces Fridge, Social, etc. se mantienen igual por ahora)
+// ... Resto de interfaces (FridgeItem, SocialSpace, GameCard) se mantienen
 
 // --- PHASE 1: FRIDGE (LAYERS) ---
 export interface FridgeItem {

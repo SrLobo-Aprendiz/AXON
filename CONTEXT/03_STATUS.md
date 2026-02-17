@@ -62,3 +62,25 @@
 - [ ] **Fase 2:** Muros sociales (Persiana/Callejón).
 - [ ] **Gamificación:** Cartas, tokens y puntos.
 - [ ] **Marketing:** Campañas masivas o influencers grandes.
+
+#ACTUALIZACION 17/2/26
+# ESTADO DEL PROYECTO (v5.5)
+**ESTADO GLOBAL:** 🟡 BUILDING
+**FASE ACTUAL:** 1.5 - EL BÚNKER (Logística + Seguridad + i18n)
+
+## ✅ COMPLETADO (DONE)
+- [x] **SSoT de Categorías:** Centralizado en types.ts (Frescos, Higiene, Pescado).
+- [x] **Unificación de Precios:** Selector Unitario/Total integrado en diálogos.
+- [x] **Hotfix Vercel:** Dependencias corregidas (Semáforo Verde en Prod).
+- [x] **Integración Date Picker:** Soporte ES y Dark Mode nativo.
+- [x] **Refactor AddItemDialog:** Prioridades y Mínimos visibles nativamente.
+- [x] **AddBatch Fix:** Trazabilidad de `householdId` para autocompletado de Tiendas/Ubicaciones.
+
+## 🚧 EN PROCESO (WIP)
+- [ ] **Migración DB (Capabilities):** Implementar la columna JSONB en `profiles`.
+- [ ] **RLS Liquid Trust:** Políticas de Supabase basadas en Capabilities.
+- [ ] **i18n Engine:** Configurar traducciones para el "Pack Nacional".
+
+## 📅 PENDIENTE (NEXT)
+- [ ] **Beta Pioneros:** Sistema de validación de códigos `beta_codes`.
+- [ ] **Wishlist:** Lógica para peticiones de compra de Level 1 (Kids).

@@ -65,4 +65,31 @@ Objetivo: Convertir la convivencia en mecánica de juego.
 ## 5. FASE 4: NEGOCIO Y LEGAL
 - **Suscripción:** Modelo "Loss Aversion" (Trial Inverso). Empiezas con todo Premium; si no pagas, pierdes personalización y funciones avanzadas.
 - **Founders:** Estatus vitalicio para las primeras 15 familias.
-- **Evidence Locker:** Hashing encriptado de chats reportados para custodia legal sin violar privacidad.
+- **Evidence Locker:** Hashing encriptado de chats reportados para custodia legal sin violar 
+privacidad.
+
+#ACTUALIZACION DE CONCEPTOS Y REVISION
+
+# AXON OS: VISIÓN MAESTRA (v4.1)
+> "Coste Cero. Fricción Cero. Sinceridad Absoluta."
+
+## 🔒 PROTOCOLO DE SIGILO (STEALTH MODE)
+- **Narrativa Pública:** "Herramienta offline y privada para gestión de stock."
+- **Narrativa Interna:** "Sistema Operativo del Hogar."
+
+## 1. MANIFIESTO Y FILOSOFÍA
+- **Justicia Digital:** Estabilidad absoluta en Android Legacy (No autoFocus).
+- **Soberanía:** El dato es de la familia. Sin anuncios. Sin servidores caros.
+
+## 2. FASE 1: EL BÚNKER (ESTADO ACTUAL)
+### 2.1. Arquitectura de Confianza Líquida
+- **Cortes de Madurez:** Level 1 (6-10), Level 2 (11-15), Level 3 (16+).
+- **Capabilities:** Permisos desacoplados del nivel para permitir "Niños Chef" o "Abuelos Activos".
+
+### 2.2. Inteligencia de Suministros (Price-Aware)
+- **Modelo Híbrido:** Guardamos un snapshot del nombre y categoría en cada lote para que el histórico de consumo sea inalterable aunque el producto padre cambie de nombre.
+- **SSoT:** Una única tabla de categorías rige toda la app (types.ts).
+
+## 3. ESTRATEGIA DE ACCESO (BETA)
+- **Código Pionero:** Entrada mediante validación de código (ej: PIONERO2026).
+- **Invitación Líquida:** Vinculación directa a `household_id` vía QR o Link Mágico.

@@ -22,3 +22,17 @@
   4. **Compatibilidad Móvil (Legacy First):**
    - **Prohibido `autoFocus`:** NUNCA usar `autoFocus` en inputs dentro de componentes flotantes (Dialog, Popover, Drawer). Provoca "White Screen of Death" en Android WebViews antiguos.
    - **Safe Dates:** Parsear fechas siempre con validación `isNaN`. Los navegadores móviles viejos explotan con formatos de fecha incorrectos.
+
+   #ACTUALIZACION 17/2/26
+   # AXON OS: REGLAS DE DESARROLLO
+
+## 1. RESTRICCIONES TÉCNICAS (IRON CLAD)
+1. **Supabase Free Tier:** Lógica en cliente. P2P para archivos.
+2. **Vercel Build:** Dependencias de construcción (`vite`, `tailwindcss`) DEBEN estar en `dependencies` (no en dev) para evitar Error 127.
+3. **SSoT Obligatorio:** Prohibido hardcodear categorías o etiquetas. Todo emana de `types.ts`.
+4. **Dates:** Usar siempre el componente `CustomDatePicker` (date-fns) en formato `yyyy-MM-dd`.
+
+## 2. UX MÓVIL (LEGACY FIRST)
+- **Prohibido `autoFocus`:** Evita la pantalla blanca en WebViews antiguos.
+- **Smart Inputs:** Los ComboBox de Ubicación y Tienda deben recuperar el historial del `householdId` para evitar fatiga de escritura.
+- **Contrastes:** Verificar legibilidad en Dark Mode (evitar negro sobre negro en inputs).
