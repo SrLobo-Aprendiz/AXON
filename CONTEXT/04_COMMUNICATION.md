@@ -12,3 +12,14 @@
 - Perfil: Familias reales (1k-10k seguidores). Caos real.
 - Oferta: "Estatus Fundador Vitalicio" a cambio de feedback brutal.
 - Formato: DM personal. Cero automatización.
+
+# 04_COMMUNICATION.md (EL ICEBERG)
+
+## 1. LA NARRATIVA (EL VALOR)
+- **Público:** "Herramienta offline y privada".
+- **Gancho Emocional:** "Hecha por un padre (Javier), solo, por las noches. Sin anuncios, sin inversores, sin mentiras."
+
+## 2. PROTOCOLO PIONERO
+- No enviamos links, enviamos **"Llaves de Acceso"** (Códigos).
+- Oferta: Estatus **Fundador Vitalicio** (Premium gratis para siempre) a cambio de feedback brutal.
+- Target: Familias reales (1k-10k seguidores) que sufran el caos diario.
