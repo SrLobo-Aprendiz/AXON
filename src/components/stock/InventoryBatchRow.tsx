@@ -182,7 +182,12 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
                 </div>
                 <div className="flex-1">
                     <Label className="text-[10px] text-zinc-500 font-bold">Ubicación</Label>
-                    <LocationAutocomplete value={editLocation} onChange={setEditLocation} householdId={householdId} placeholder="Lugar" />
+                    <LocationAutocomplete 
+                         value={editLocation} 
+                         onChange={setEditLocation} 
+                         householdId={householdId} 
+                         placeholder="¿Dónde lo guardas?" 
+                    />
                 </div>
             </div>
             <div className="flex gap-2">

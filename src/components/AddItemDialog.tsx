@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
+import { format } from 'date-fns'; // Importado para formato fecha
+import { es } from 'date-fns/locale'; // Importado para idioma español
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Loader2, Save, Ghost, Store, AlertTriangle, Info } from 'lucide-react';
+import { Plus, Loader2, Save, Ghost, Store, AlertTriangle, Info, CalendarIcon } from 'lucide-react'; // Añadido CalendarIcon
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { LocationAutocomplete } from './LocationAutocomplete';
 import { CATEGORIES, CATEGORY_CONFIG } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { StoreAutocomplete } from './StoreAutocomplete';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Añadido
+import { Calendar } from '@/components/ui/calendar'; // Añadido
 
 interface AddItemDialogProps {
   isOpen: boolean;
@@ -30,7 +35,9 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ isOpen, onOpenChange, hou
   const [initialQty, setInitialQty] = useState('1');
   const [unit, setUnit] = useState('uds');
   const [location, setLocation] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
+  
+  // CAMBIO: Estado para el calendario (Date | undefined)
+  const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   
   // Lógica de Precio
   const [priceInput, setPriceInput] = useState('');
@@ -81,7 +88,8 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ isOpen, onOpenChange, hou
                 unit,
                 quantity: qty,
                 location: location || 'Despensa',
-                expiry_date: expiryDate || null,
+                // CAMBIO: Formatear fecha para enviar a la BD
+                expiry_date: expiryDate ? format(expiryDate, 'yyyy-MM-dd') : null,
                 price: finalUnitPrice,
                 store: store.trim() || null
             });
@@ -93,6 +101,7 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ isOpen, onOpenChange, hou
         
         // Reset
         setName(''); setCategory(''); setInitialQty('1'); setPriceInput(''); setStore(''); setLocation('');
+        setExpiryDate(undefined); // Reset fecha
         onOpenChange(false);
 
     } catch (e: any) {
@@ -167,22 +176,57 @@ const AddItemDialog: React.FC<AddItemDialogProps> = ({ isOpen, onOpenChange, hou
                     </div>
                     
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
-                            <Label className="text-xs text-zinc-400">Tienda (Opcional)</Label>
-                            <div className="relative">
-                                <Store className="absolute left-3 top-2.5 w-4 h-4 text-zinc-600"/>
-                                <Input value={store} onChange={e=>setStore(e.target.value)} placeholder="Mercadona, Carrefour..." className="bg-zinc-950 border-zinc-700 pl-9"/>
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="text-xs text-zinc-400">Ubicación</Label>
-                            <LocationAutocomplete householdId={householdId} value={location} onChange={setLocation} placeholder="¿Dónde va?"/>
-                        </div>
-                        <div>
-                            <Label className="text-xs text-zinc-400">Caducidad</Label>
-                            <Input type="date" value={expiryDate} onChange={e=>setExpiryDate(e.target.value)} className="bg-zinc-950 border-zinc-700 block"/>
-                        </div>
+                    {/* 1. TIENDA (Ocupa 2 columnas) - AHORA CON AUTOCOMPLETADO */}
+                    <div className="col-span-2 grid gap-1.5">
+                        <Label className="text-[10px] font-bold text-zinc-500 uppercase">Tienda</Label>
+                        <StoreAutocomplete 
+                            value={store} 
+                            onChange={setStore} 
+                            householdId={householdId} 
+                            placeholder="Tienda"
+                        />
                     </div>
+
+                    {/* 2. UBICACIÓN - (Aprovecha para unificar el estilo de la etiqueta) */}
+                    <div className="grid gap-1.5">
+                          <Label className="text-[10px] font-bold text-zinc-500 uppercase">Ubicación</Label>
+                          <LocationAutocomplete 
+                             householdId={householdId} 
+                             value={location} 
+                             onChange={setLocation} 
+                             placeholder="¿Dónde lo guardas?" // Unificamos texto
+                          />
+                    </div>
+
+                    {/* 3. CADUCIDAD - CAMBIADO A CALENDARIO OSCURO/ESPAÑOL */}
+                    <div className="grid gap-1.5">
+                        <Label className="text-[10px] font-bold text-zinc-500 uppercase">Caducidad</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button 
+                                    variant="outline" 
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal bg-zinc-950 border-zinc-700 h-9 text-xs",
+                                        !expiryDate && "text-zinc-500"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-3 w-3" />
+                                    {expiryDate ? format(expiryDate, "dd/MM/yy", { locale: es }) : <span>Sin fecha</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-zinc-950 border-zinc-800" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={expiryDate}
+                                    onSelect={setExpiryDate}
+                                    initialFocus
+                                    locale={es}
+                                    className="bg-zinc-950 text-white"
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
                 </div>
 
                 {/* BLOQUE 3: CONTROL DE STOCK (DISEÑO UNIFICADO CON EDIT PRODUCT) */}

@@ -231,7 +231,12 @@ export const ReceptionRow: React.FC<ReceptionRowProps> = ({ item, householdId, o
                 </div>
 
                 {/* 4. Ubicación */}
-                <LocationAutocomplete value={loc} onChange={setLoc} householdId={householdId} placeholder="Lugar..." />
+                <LocationAutocomplete 
+                value={loc} 
+                onChange={setLoc} 
+                householdId={householdId} 
+                placeholder="¿Dónde lo guardas?" 
+                />
             </div>
             
             <div className="flex gap-2 mt-1">

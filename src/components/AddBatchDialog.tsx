@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2, Save, Store } from 'lucide-react';
+import { CalendarIcon, Loader2, Save } from 'lucide-react'; // Quitamos Store porque ya no se usa el icono manual
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LocationAutocomplete } from './LocationAutocomplete';
+import { StoreAutocomplete } from './StoreAutocomplete';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AddBatchDialogProps {
   product: {
@@ -29,6 +31,7 @@ interface AddBatchDialogProps {
 
 const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpenChange, onBatchAdded }) => {
   const { toast } = useToast();
+  const { user } = useAuth(); // Hook de autenticación para asegurar el ID de casa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const quantityRef = useRef<HTMLInputElement>(null);
   
@@ -36,9 +39,12 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
   const [price, setPrice] = useState('');
   const [priceType, setPriceType] = useState<'total' | 'unit'>('total');
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
-  const [location, setLocation] = useState('Despensa');
-  const [store, setStore] = useState(''); // Estado para la tienda
+  
+  // Estados para selectores (empiezan vacíos)
+  const [location, setLocation] = useState(''); 
+  const [store, setStore] = useState('');
 
+  // Foco automático al abrir
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
@@ -52,7 +58,7 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
     setQuantity(''); 
     setPrice(''); 
     setExpiryDate(undefined);
-    setLocation('Despensa');
+    setLocation(''); 
     setStore('');
   };
 
@@ -73,12 +79,22 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
           finalUnitPrice = priceType === 'total' ? (p / qty) : p;
       }
 
+      // ID de Casa Seguro: Si el producto no lo trae, usamos el del usuario conectado
+      const safeHouseholdId = product.household_id || user?.user_metadata?.household_id;
+
+      if (!safeHouseholdId) {
+          throw new Error("No se ha podido identificar la casa del usuario.");
+      }
+
       const { error } = await supabase.from('inventory_items').insert({
-        household_id: product.household_id,
+        household_id: safeHouseholdId,
         product_id: product.id,
+        name: product.name,         
+        category: product.category, 
+        unit: product.unit,         
         quantity: qty,
-        location: location,
-        store: store.trim() || null, // Guardamos tienda
+        location: location || 'Despensa', // Por defecto 'Despensa' si no elige nada
+        store: store.trim() || null,
         expiry_date: expiryDate ? format(expiryDate, 'yyyy-MM-dd') : null,
         price: finalUnitPrice
       });
@@ -101,8 +117,8 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if(!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-[400px] max-h-[85vh] overflow-hidden flex flex-col">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full">
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
                 <span className="text-blue-500 font-mono text-xs border border-blue-500/30 px-2 py-0.5 rounded">LOTE</span>
@@ -111,10 +127,10 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
             <DialogDescription>Añadiendo nuevo lote físico al stock actual.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-6 overflow-y-auto flex-1">
+          <div className="space-y-4">
             {/* CANTIDAD */}
             <div className="grid gap-2">
-              <Label className="text-zinc-500 text-[10px] uppercase font-bold">Cantidad a añadir</Label>
+              <Label className="text-[10px] font-bold text-zinc-500 uppercase">Cantidad</Label>
               <div className="flex items-center gap-3">
                 <Input 
                     ref={quantityRef}
@@ -123,9 +139,9 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
                     value={quantity} 
                     onChange={(e) => setQuantity(e.target.value)} 
                     placeholder="0" 
-                    className="bg-zinc-900 border-zinc-700 text-lg font-bold"
+                    className="bg-zinc-900 border-zinc-700 text-lg font-bold h-12"
                 />
-                <span className="text-xl font-mono text-zinc-600 bg-zinc-900/50 px-4 py-2 rounded-md border border-zinc-800 min-w-[70px] text-center">
+                <span className="text-xl font-mono text-zinc-600 bg-zinc-900/50 px-4 py-2 rounded-md border border-zinc-800 h-12 flex items-center justify-center min-w-[70px]">
                     {product.unit}
                 </span>
               </div>
@@ -134,7 +150,7 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
             {/* PRECIO Y CADUCIDAD */}
             <div className="grid grid-cols-2 gap-4">
                <div className="grid gap-2">
-                <Label className="text-zinc-500 text-[10px] uppercase font-bold">Precio (€)</Label>
+                <Label className="text-[10px] font-bold text-zinc-500 uppercase">Precio (€)</Label>
                 <div className="flex gap-1">
                     <Input 
                       type="number" 
@@ -142,7 +158,7 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
                       value={price} 
                       onChange={(e) => setPrice(e.target.value)} 
                       placeholder="0.00" 
-                      className="bg-zinc-900 border-zinc-700 text-right flex-1 min-w-0" 
+                      className="bg-zinc-900 border-zinc-700 text-right" 
                     />
                     <Select value={priceType} onValueChange={(v:any)=>setPriceType(v)}>
                         <SelectTrigger className="w-[70px] bg-zinc-900 border-zinc-700 px-1 text-[10px]"><SelectValue /></SelectTrigger>
@@ -155,13 +171,13 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
               </div>
 
                <div className="grid gap-2">
-                  <Label className="text-zinc-500 text-[10px] uppercase font-bold">Caducidad</Label>
+                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Caducidad</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button 
                         variant="outline" 
                         className={cn(
-                          'justify-start text-left font-normal bg-zinc-900 border-zinc-700 text-xs', 
+                          'justify-start text-left font-normal bg-zinc-900 border-zinc-700 text-xs h-10', 
                           !expiryDate && 'text-zinc-500'
                         )}
                       >
@@ -175,39 +191,36 @@ const AddBatchDialog: React.FC<AddBatchDialogProps> = ({ product, isOpen, onOpen
                          selected={expiryDate} 
                          onSelect={setExpiryDate} 
                          locale={es}
-                         fixedWeeks
                          initialFocus 
-                         className="bg-zinc-950 text-zinc-100 rounded-md border border-zinc-800"
+                         className="bg-zinc-950 text-zinc-100"
                        />
                     </PopoverContent>
                   </Popover>
                 </div>
             </div>
 
-            {/* TIENDA (NUEVO) */}
+            {/* TIENDA (Nuevo componente StoreAutocomplete) */}
             <div className="grid gap-2">
-                <Label className="text-zinc-500 text-[10px] uppercase font-bold">Tienda (Opcional)</Label>
-                <div className="relative">
-                    <Store className="absolute left-3 top-2.5 w-4 h-4 text-zinc-600"/>
-                    <Input 
-                        value={store} 
-                        onChange={(e) => setStore(e.target.value)} 
-                        placeholder="Mercadona, Carrefour..." 
-                        className="bg-zinc-900 border-zinc-700 pl-9"
-                    />
-                </div>
-            </div>
-
-             {/* UBICACIÓN */}
-            <div className="grid gap-2">
-                <Label className="text-zinc-500 text-[10px] uppercase font-bold">Ubicación</Label>
-                <LocationAutocomplete 
-                    value={location} 
-                    onChange={setLocation} 
-                    householdId={product.household_id} 
-                    placeholder="¿Dónde lo guardas?"
+                <Label className="text-[10px] font-bold text-zinc-500 uppercase">Tienda (Opcional)</Label>
+                <StoreAutocomplete 
+                    value={store} 
+                    onChange={setStore} 
+                    // Fallback de seguridad para el ID de casa
+                    householdId={product.household_id || user?.user_metadata?.household_id}
+                    placeholder="Tienda" 
                 />
             </div>
+
+             {/* UBICACIÓN (Nuevo componente LocationAutocomplete) */}
+             <div className="grid gap-2">
+                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Ubicación</Label>
+                  <LocationAutocomplete 
+                       value={location} 
+                       onChange={setLocation} 
+                       householdId={product.household_id || user?.user_metadata?.household_id} 
+                       placeholder="¿Dónde lo guardas?" 
+                  />
+             </div>
           </div>
 
           <DialogFooter className="border-t border-zinc-800 pt-4">
