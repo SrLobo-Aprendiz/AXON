@@ -421,7 +421,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-                <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-full max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden [&>button]:hidden">
+                <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-[95vw] sm:w-full max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl [&>button]:hidden">
 
                     <DialogTitle className="sr-only">Gestión de Stock</DialogTitle>
                     <DialogDescription className="sr-only">Inventario</DialogDescription>
@@ -590,7 +590,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                 const priorityColor = item.importance_level === 'critical' ? "border-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.1)]" :
                                                     item.importance_level === 'high' ? "border-orange-500/50 shadow-[0_0_8px_rgba(249,115,22,0.1)]" :
                                                         "border-blue-500/50 shadow-[0_0_8px_rgba(59,130,246,0.1)]";
-                                                const priorityText = item.importance_level === 'critical' ? 'VITAL' : item.importance_level === 'high' ? 'ALTA' : 'NORMAL';
+                                                const priorityText = item.importance_level === 'critical' ? 'VITAL' : item.importance_level === 'high' ? 'ALTA' : 'NORM.';
                                                 const priorityTextColor = item.importance_level === 'critical' ? "text-red-400" : item.importance_level === 'high' ? "text-orange-400" : "text-blue-400";
 
                                                 return (
@@ -706,10 +706,10 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                 )}>
                                                     {/* Priority Label */}
                                                     <div className={cn(
-                                                        "absolute top-0 right-0 px-2 py-0.5 text-[8px] font-black tracking-widest rounded-bl-lg",
+                                                        "absolute top-0 right-0 px-2 py-0.5 text-[9px] font-black tracking-tighter rounded-bl-lg",
                                                         item.severity === 'expiry' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
                                                     )}>
-                                                        {item.severity === 'expiry' ? 'CADUCIDAD' : 'OPCIONAL'}
+                                                        {item.severity === 'expiry' ? 'CADUC.' : 'OPC.'}
                                                     </div>
                                                     {/* Icon Group (Indicator + Add) */}
                                                     <div className="flex items-center gap-2 shrink-0">
