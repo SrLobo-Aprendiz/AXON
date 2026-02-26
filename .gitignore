@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Supplemental AXON Ignores
+.cursor_backup
+tool_output.txt
+supabase/.temp
+Thumbs.db
+*.tmp
+*.temp
+.vercel
+.netlify
+coverage/

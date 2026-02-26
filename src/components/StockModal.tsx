@@ -234,6 +234,22 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 }
             }
         }
+
+        // --- FIX: Borrar producto ghost si ya no queda nada de nada ---
+        if (selectedProduct.is_ghost) {
+            const { data: remainingBatches } = await supabase
+                .from('inventory_items')
+                .select('id, quantity')
+                .eq('product_id', selectedProduct.product_id);
+            
+            const totalRemaining = remainingBatches?.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) || 0;
+            
+            if (totalRemaining <= 0) {
+                await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+                setSelectedProduct(null);
+            }
+        }
+
         toast({ title: "Consumido", description: `${qty} ${selectedProduct.unit} gastados.` });
         setConsumeAmount('');
         fetchData();
@@ -244,11 +260,41 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 
   const handleDeleteBatch = async (batchId: string) => {
       await supabase.from('inventory_items').delete().eq('id', batchId);
+      
+      // --- FIX: Borrar producto ghost si era el último lote ---
+      if (selectedProduct?.is_ghost) {
+          const { data: remainingBatches } = await supabase
+              .from('inventory_items')
+              .select('id, quantity')
+              .eq('product_id', selectedProduct.product_id);
+          
+          if (!remainingBatches || remainingBatches.length === 0) {
+              await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+              setSelectedProduct(null);
+          }
+      }
       fetchData();
   };
 
   const handleUpdateBatch = async (batchId: string, updates: Partial<InventoryItem>) => {
       await supabase.from('inventory_items').update(updates as any).eq('id', batchId);
+      
+      // --- FIX: Borrar producto ghost si la cantidad se puso a 0 y es ghost ---
+      if (selectedProduct?.is_ghost && updates.quantity !== undefined && Number(updates.quantity) <= 0) {
+          await supabase.from('inventory_items').delete().eq('id', batchId);
+          
+          const { data: remainingBatches } = await supabase
+              .from('inventory_items')
+              .select('id, quantity')
+              .eq('product_id', selectedProduct.product_id);
+          
+          const totalRemaining = remainingBatches?.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) || 0;
+          
+          if (totalRemaining <= 0) {
+              await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+              setSelectedProduct(null);
+          }
+      }
       fetchData();
   };
 
