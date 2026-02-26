@@ -612,6 +612,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                         {/* Swipe reveal */}
                                                         <div className={cn(
                                                             "absolute inset-0 flex items-center pl-4",
+                                                            offset === 0 ? "invisible" : "visible",
                                                             offset >= SWIPE_THRESHOLD ? "bg-green-600/25" : "bg-blue-600/15"
                                                         )}>
                                                             <ShoppingCart className={cn("w-5 h-5 transition-all duration-150", offset >= SWIPE_THRESHOLD ? "text-green-400 scale-125" : "text-blue-400 opacity-60")} />
@@ -737,7 +738,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                 return (
                                                     <div key={item.product_id} className={cn("rounded-xl border relative overflow-hidden", item.severity === 'expiry' ? "border-purple-500/30" : "border-blue-500/30")}>
                                                         {/* Swipe reveal */}
-                                                        <div className={cn("absolute inset-0 flex items-center pl-4", offset >= SWIPE_THRESHOLD ? "bg-green-600/25" : "bg-blue-600/15")}>
+                                                        <div className={cn("absolute inset-0 flex items-center pl-4", offset === 0 ? "invisible" : "visible", offset >= SWIPE_THRESHOLD ? "bg-green-600/25" : "bg-blue-600/15")}>
                                                             <ShoppingCart className={cn("w-5 h-5 transition-all duration-150", offset >= SWIPE_THRESHOLD ? "text-green-400 scale-125" : "text-blue-400 opacity-60")} />
                                                         </div>
                                                         {/* Row */}
