@@ -13,12 +13,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "vite": "^7.3.1",
-    "@vitejs/plugin-react-swc": "^3.11.0",
-    "typescript": "^5.8.3",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.5.6",
-    "autoprefixer": "^10.4.21",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -49,6 +43,8 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-query": "^5.83.0",
+    "@vitejs/plugin-react-swc": "^3.11.0",
+    "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -57,6 +53,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "postcss": "^8.5.6",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -66,8 +63,11 @@
     "recharts": "^2.15.4",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
+    "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.8.3",
     "vaul": "^0.9.9",
+    "vite": "^7.3.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -84,6 +84,7 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
+    "supabase": "^2.76.13",
     "typescript-eslint": "^8.38.0",
     "vitest": "^3.2.4"
   }

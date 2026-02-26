@@ -63,12 +63,16 @@
 - [ ] **Gamificación:** Cartas, tokens y puntos.
 - [ ] **Marketing:** Campañas masivas o influencers grandes.
 
-#ACTUALIZACION 17/2/26
-# ESTADO DEL PROYECTO (v5.5)
+#ACTUALIZACION 23/2/26
+# ESTADO DEL PROYECTO (v5.6)
 **ESTADO GLOBAL:** 🟡 BUILDING
 **FASE ACTUAL:** 1.5 - EL BÚNKER (Logística + Seguridad + i18n)
 
 ## ✅ COMPLETADO (DONE)
+- [x] **Master Product Registry:** Implementado `ProductAutocomplete` para reutilizar definiciones y evitar duplicidad de productos maestros.
+- [x] **Deduplicación de Lotes:** Lógica inteligente para fusionar o vincular nuevos lotes a productos existentes basándose en el nombre.
+- [x] **UI Normalization:** Alturas (`h-9`) y fondos (`bg-zinc-950`) unificados en diálogos de stock para un look premium.
+- [x] **Mobile UX Optimization:** Deshabilitada apertura automática de desplegables en foco y añadido disparador manual (`ChevronDown`) para evitar saltos de teclado en móviles.
 - [x] **SSoT de Categorías:** Centralizado en types.ts (Frescos, Higiene, Pescado).
 - [x] **Unificación de Precios:** Selector Unitario/Total integrado en diálogos.
 - [x] **Hotfix Vercel:** Dependencias corregidas (Semáforo Verde en Prod).
