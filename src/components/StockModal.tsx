@@ -153,6 +153,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     const [rawInventoryItems, setRawInventoryItems] = useState<InventoryItem[]>([]);
     const [criticalAlerts, setCriticalAlerts] = useState<any[]>([]);
     const [suggestionAlerts, setSuggestionAlerts] = useState<any[]>([]);
+    const [existingProductsInfo, setExistingProductsInfo] = useState<Record<string, any>>({});
 
     // Sugerencias centralizadas para evitar redundancia en hijos
     const [storeSuggestions, setStoreSuggestions] = useState<string[]>([]);
@@ -282,6 +283,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
         setIsLoading(true);
 
         try {
+            // FASE 1: Recepción (Prioridad 1)
             const { data: receptionData } = await supabase
                 .from('shopping_list')
                 .select('*')
@@ -289,15 +291,36 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 .eq('status', 'bought')
                 .order('created_at', { ascending: false });
 
-            if (receptionData) setReceptionItems(receptionData);
+            if (receptionData) {
+                setReceptionItems(receptionData);
 
+                // Pre-fetch de info de productos para la recepción (Centralizado)
+                const names = receptionData.map(i => i.item_name).filter(Boolean);
+                if (names.length > 0) {
+                    const { data: prods } = await supabase
+                        .from('product_definitions')
+                        .select('id, name, unit, is_ghost, importance_level')
+                        .eq('household_id', householdId)
+                        .in('name', names);
+
+                    const infoMap: Record<string, any> = {};
+                    prods?.forEach(p => {
+                        infoMap[p.name.toLowerCase()] = p;
+                    });
+                    setExistingProductsInfo(infoMap);
+                }
+            }
+
+            // PEQUEÑA PAUSA para dejar respirar al hilo principal
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // FASE 2: Inventario (Prioridad 2 - Más pesado)
             const { data: inventoryData } = await supabase
                 .from('inventory_items')
                 .select('*, product:product_definitions(*)')
                 .eq('household_id', householdId)
                 .order('expiry_date', { ascending: true });
 
-            // Cargar sugerencias centralizadas
             if (inventoryData) {
                 const uniqueStores = new Set<string>();
                 const uniqueLocs = new Set<string>();
@@ -309,7 +332,11 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 setLocationSuggestions(Array.from(uniqueLocs).sort());
 
                 setRawInventoryItems(inventoryData as InventoryItem[]);
-                processInventory(inventoryData);
+
+                // Deferir el procesamiento del inventario
+                setTimeout(() => {
+                    processInventory(inventoryData);
+                }, 100);
             }
         } catch (err) {
             console.error("Error fetching stock:", err);
@@ -319,7 +346,13 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     }, [householdId]);
 
     useEffect(() => {
-        if (isOpen) fetchData();
+        // Delay inicial para esperar a que termine la animación del Dialog
+        if (isOpen) {
+            const t = setTimeout(() => {
+                fetchData();
+            }, 250);
+            return () => clearTimeout(t);
+        }
     }, [isOpen, fetchData]);
 
     useEffect(() => {
@@ -592,6 +625,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                         onReceive={fetchData}
                                                         storeSuggestions={storeSuggestions}
                                                         locationSuggestions={locationSuggestions}
+                                                        existingProductInfo={existingProductsInfo[item.item_name?.toLowerCase()]}
                                                     />
                                                 ))}
                                             </div>}

@@ -33,6 +33,7 @@ interface ReceptionRowProps {
     onReceive: () => void;
     storeSuggestions?: string[];
     locationSuggestions?: string[];
+    existingProductInfo?: any;
 }
 
 export const ReceptionRow: React.FC<ReceptionRowProps> = ({
@@ -40,7 +41,8 @@ export const ReceptionRow: React.FC<ReceptionRowProps> = ({
     householdId,
     onReceive,
     storeSuggestions = [],
-    locationSuggestions = []
+    locationSuggestions = [],
+    existingProductInfo
 }) => {
     const { useLowPerfUI } = usePerformanceSettings();
     const { toast } = useToast();
@@ -69,25 +71,15 @@ export const ReceptionRow: React.FC<ReceptionRowProps> = ({
     const [manualMinQty, setManualMinQty] = useState<string>('');
 
     useEffect(() => {
-        const check = async () => {
-            try {
-                const { data } = await supabase.from('product_definitions')
-                    .select('id, unit, is_ghost, importance_level')
-                    .eq('household_id', householdId)
-                    .ilike('name', item.item_name)
-                    .maybeSingle();
-
-                if (!data) {
-                    setIsNewProduct(true);
-                } else {
-                    if (data.unit) setUnit(data.unit);
-                    setIsGhostMode(data.is_ghost || false);
-                }
-            } catch (e) { console.error(e); }
-            finally { setIsChecking(false); }
-        };
-        check();
-    }, [item, householdId]);
+        if (existingProductInfo) {
+            setIsNewProduct(false);
+            if (existingProductInfo.unit) setUnit(existingProductInfo.unit);
+            setIsGhostMode(existingProductInfo.is_ghost || false);
+        } else {
+            setIsNewProduct(true);
+        }
+        setIsChecking(false);
+    }, [existingProductInfo]);
 
     const handleConfirm = async () => {
         setIsSubmitting(true);
@@ -166,7 +158,7 @@ export const ReceptionRow: React.FC<ReceptionRowProps> = ({
                 {isNewProduct && !isGhostMode && <Badge className="bg-blue-600 text-[10px] animate-pulse">NUEVO</Badge>}
             </div>
 
-            {/* CONFIG SI ES NUEVO */}
+            {/* CONFIG SI ES NUEVO (Optimizado Lite) */}
             {isNewProduct && (
                 <div className="bg-black/20 p-2 rounded border border-blue-500/20 flex flex-col gap-2">
                     <div className="flex items-center gap-2 mb-1">
@@ -174,27 +166,39 @@ export const ReceptionRow: React.FC<ReceptionRowProps> = ({
                             id={`ghost-${item.id}`}
                             checked={isGhostMode}
                             onCheckedChange={(c: boolean) => setIsGhostMode(c)}
-                            className="border-zinc-600 data-[state=checked]:bg-purple-600 border-purple-500/50"
+                            className="border-zinc-600 data-[state=checked]:bg-purple-600 border-purple-500/50 h-4 w-4"
                         />
                         <label htmlFor={`ghost-${item.id}`} className="text-xs text-zinc-300 cursor-pointer select-none flex items-center gap-1">
                             Es Ghost <span className="text-[9px] text-zinc-500 ml-1">(Sin alertas)</span>
                         </label>
                     </div>
                     {!isGhostMode && (
-                        <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-1">
+                        <div className="grid grid-cols-2 gap-2">
                             <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] text-blue-300 uppercase font-bold">Importancia</Label>
-                                <Select value={priorityMode} onValueChange={(v: any) => setPriorityMode(v)}>
-                                    <SelectTrigger className="h-7 text-xs bg-zinc-950 border-zinc-700"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-zinc-900 text-white border-zinc-800">
-                                        <SelectItem value="critical" className="text-red-400 font-bold">🔴 Vital</SelectItem>
-                                        <SelectItem value="high" className="text-orange-400 font-bold">🟠 Alta</SelectItem>
-                                        <SelectItem value="normal" className="text-blue-400 font-bold">🔵 Normal</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label className="text-[10px] text-blue-300 uppercase font-black">Importancia</Label>
+                                {useLowPerfUI ? (
+                                    <select
+                                        className="h-7 text-xs bg-zinc-950 border border-zinc-700 rounded px-1 text-white appearance-none"
+                                        value={priorityMode}
+                                        onChange={(e) => setPriorityMode(e.target.value as any)}
+                                    >
+                                        <option value="critical">🔴 Vital</option>
+                                        <option value="high">🟠 Alta</option>
+                                        <option value="normal">🔵 Normal</option>
+                                    </select>
+                                ) : (
+                                    <Select value={priorityMode} onValueChange={(v: any) => setPriorityMode(v)}>
+                                        <SelectTrigger className="h-7 text-xs bg-zinc-950 border-zinc-700"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="bg-zinc-900 text-white border-zinc-800" onOpenAutoFocus={e => e.preventDefault()}>
+                                            <SelectItem value="critical" className="text-red-400 font-bold">🔴 Vital</SelectItem>
+                                            <SelectItem value="high" className="text-orange-400 font-bold">🟠 Alta</SelectItem>
+                                            <SelectItem value="normal" className="text-blue-400 font-bold">🔵 Normal</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] text-blue-300 uppercase font-bold">Min. Stock</Label>
+                                <Label className="text-[10px] text-blue-300 uppercase font-black">Min. Stock</Label>
                                 <Input type="number" className="h-7 text-xs bg-zinc-950 border-zinc-700" placeholder="Ej: 2" value={manualMinQty} onChange={e => setManualMinQty(e.target.value)} />
                             </div>
                         </div>

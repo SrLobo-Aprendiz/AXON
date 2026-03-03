@@ -9,7 +9,12 @@ export const usePerformanceSettings = () => {
         return (saved as PerformanceMode) || 'auto';
     });
 
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth < 768;
+        }
+        return false;
+    });
 
     useEffect(() => {
         const checkMobile = () => {
