@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Ghost, AlertTriangle, Info, RefreshCw } from 'lucide-react';
+import { inventoryService } from '@/lib/services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -54,29 +55,24 @@ export const EditProductDialog: React.FC<EditProductDialogProps> = ({ product, i
     setIsSubmitting(true);
     try {
         // 1. Actualizar el Producto Padre (Definición)
-        const { error } = await supabase.from('product_definitions')
-            .update({
-                name: name.trim(),
-                category: category,
-                unit: unit,
-                is_ghost: isGhost,
-                importance_level: isGhost ? 'ghost' : priority,
-                min_quantity: (!isGhost && minQty) ? Number(minQty) : null
-            } as any)
-            .eq('id', product.product_id); // Ojo: product.product_id es el ID de la definición
+        const { error } = await inventoryService.updateProductDefinition(product.product_id, {
+            name: name.trim(),
+            category: category,
+            unit: unit,
+            is_ghost: isGhost,
+            importance_level: isGhost ? 'ghost' : priority,
+            min_quantity: (!isGhost && minQty) ? Number(minQty) : null
+        });
 
         if (error) throw error;
 
         // 2. Si el usuario quiere, actualizamos también todos los lotes (Inventory Items)
         if (updateBatches) {
-            const { error: batchError } = await supabase.from('inventory_items')
-                .update({
-                    name: name.trim(),
-                    category: category,
-                    unit: unit,
-                    // No actualizamos location, expiry, etc. Solo datos descriptivos.
-                } as any)
-                .eq('product_id', product.product_id);
+            const { error: batchError } = await inventoryService.syncProductDataToBatches(product.product_id, {
+                name: name.trim(),
+                category: category,
+                unit: unit
+            });
 
             if (batchError) throw batchError;
         }

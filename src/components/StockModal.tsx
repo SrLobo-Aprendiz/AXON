@@ -5,6 +5,7 @@ import {
     Pencil, Plus, Loader2, X, CheckCircle2,
     Ghost, Skull, Info, ChevronRight, Minus, Layers, Check, ChevronLeft, Trash2
 } from 'lucide-react';
+import { inventoryService } from '@/lib/services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -283,61 +284,40 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
         setIsLoading(true);
 
         try {
-            // FASE 1: Recepción (Prioridad 1)
-            const { data: receptionData } = await supabase
-                .from('shopping_list')
-                .select('*')
-                .eq('household_id', householdId)
-                .eq('status', 'bought')
-                .order('created_at', { ascending: false });
+            // FASE 1: Recepción
+            const receptionData = await inventoryService.getReceptionItems(householdId);
+            setReceptionItems(receptionData);
 
-            if (receptionData) {
-                setReceptionItems(receptionData);
-
-                // Pre-fetch de info de productos para la recepción (Centralizado)
-                const names = receptionData.map(i => i.item_name).filter(Boolean);
-                if (names.length > 0) {
-                    const { data: prods } = await supabase
-                        .from('product_definitions')
-                        .select('id, name, unit, is_ghost, importance_level')
-                        .eq('household_id', householdId)
-                        .in('name', names);
-
-                    const infoMap: Record<string, any> = {};
-                    prods?.forEach(p => {
-                        infoMap[p.name.toLowerCase()] = p;
-                    });
-                    setExistingProductsInfo(infoMap);
-                }
+            // Pre-fetch de info de productos
+            const names = receptionData.map(i => i.item_name).filter(Boolean);
+            if (names.length > 0) {
+                const prods = await inventoryService.getProductDefinitions(householdId, names);
+                const infoMap: Record<string, any> = {};
+                prods?.forEach(p => {
+                    infoMap[p.name.toLowerCase()] = p;
+                });
+                setExistingProductsInfo(infoMap);
             }
 
-            // PEQUEÑA PAUSA para dejar respirar al hilo principal
             await new Promise(resolve => setTimeout(resolve, 300));
 
-            // FASE 2: Inventario (Prioridad 2 - Más pesado)
-            const { data: inventoryData } = await supabase
-                .from('inventory_items')
-                .select('*, product:product_definitions(*)')
-                .eq('household_id', householdId)
-                .order('expiry_date', { ascending: true });
+            // FASE 2: Inventario
+            const inventoryData = await inventoryService.getInventory(householdId);
+            
+            const uniqueStores = new Set<string>();
+            const uniqueLocs = new Set<string>();
+            inventoryData.forEach((i: any) => {
+                if (i.store?.trim()) uniqueStores.add(i.store.trim());
+                if (i.location?.trim()) uniqueLocs.add(i.location.trim());
+            });
+            setStoreSuggestions(Array.from(uniqueStores).sort());
+            setLocationSuggestions(Array.from(uniqueLocs).sort());
 
-            if (inventoryData) {
-                const uniqueStores = new Set<string>();
-                const uniqueLocs = new Set<string>();
-                inventoryData.forEach((i: any) => {
-                    if (i.store?.trim()) uniqueStores.add(i.store.trim());
-                    if (i.location?.trim()) uniqueLocs.add(i.location.trim());
-                });
-                setStoreSuggestions(Array.from(uniqueStores).sort());
-                setLocationSuggestions(Array.from(uniqueLocs).sort());
+            setRawInventoryItems(inventoryData);
 
-                setRawInventoryItems(inventoryData as InventoryItem[]);
-
-                // Deferir el procesamiento del inventario
-                setTimeout(() => {
-                    processInventory(inventoryData);
-                }, 100);
-            }
+            setTimeout(() => {
+                processInventory(inventoryData);
+            }, 100);
         } catch (err) {
             console.error("Error fetching stock:", err);
         } finally {
@@ -367,7 +347,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     const confirmDeleteProduct = async () => {
         if (!selectedProduct) return;
         try {
-            const { error } = await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+            const { error } = await inventoryService.deleteProduct(selectedProduct.product_id);
             if (error) throw error;
 
             toast({ title: "Eliminado", description: "Producto borrado." });
@@ -387,39 +367,15 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
         }
 
         try {
-            let remaining = qty;
-            const batches = rawInventoryItems
-                .filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0)
-                .sort((a, b) => new Date(a.expiry_date || '9999').getTime() - new Date(b.expiry_date || '9999').getTime());
+            const { productDeleted } = await inventoryService.consumeProductStock(
+                selectedProduct.product_id,
+                qty,
+                selectedProduct.is_ghost,
+                rawInventoryItems
+            );
 
-            for (const batch of batches) {
-                if (remaining <= 0) break;
-                if (batch.quantity > remaining) {
-                    await supabase.from('inventory_items').update({ quantity: batch.quantity - remaining } as any).eq('id', batch.id);
-                    remaining = 0;
-                } else {
-                    remaining -= batch.quantity;
-                    if (selectedProduct.is_ghost) {
-                        await supabase.from('inventory_items').delete().eq('id', batch.id);
-                    } else {
-                        await supabase.from('inventory_items').update({ quantity: 0, expiry_date: null } as any).eq('id', batch.id);
-                    }
-                }
-            }
-
-            // --- FIX: Borrar producto ghost si ya no queda nada de nada ---
-            if (selectedProduct.is_ghost) {
-                const { data: remainingBatches } = await supabase
-                    .from('inventory_items')
-                    .select('id, quantity')
-                    .eq('product_id', selectedProduct.product_id);
-
-                const totalRemaining = remainingBatches?.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) || 0;
-
-                if (totalRemaining <= 0) {
-                    await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
-                    setSelectedProduct(null);
-                }
+            if (productDeleted) {
+                setSelectedProduct(null);
             }
 
             toast({ title: "Consumido", description: `${qty} ${selectedProduct.unit} gastados.` });
@@ -431,9 +387,8 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     };
 
     const handleDeleteBatch = async (batchId: string) => {
-        await supabase.from('inventory_items').delete().eq('id', batchId);
+        await inventoryService.deleteBatch(batchId);
 
-        // --- FIX: Borrar producto ghost si era el último lote ---
         if (selectedProduct?.is_ghost) {
             const { data: remainingBatches } = await supabase
                 .from('inventory_items')
@@ -441,7 +396,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 .eq('product_id', selectedProduct.product_id);
 
             if (!remainingBatches || remainingBatches.length === 0) {
-                await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+                await inventoryService.deleteProduct(selectedProduct.product_id);
                 setSelectedProduct(null);
             }
         }
@@ -449,11 +404,10 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     };
 
     const handleUpdateBatch = async (batchId: string, updates: Partial<InventoryItem>) => {
-        await supabase.from('inventory_items').update(updates as any).eq('id', batchId);
+        await inventoryService.updateBatch(batchId, updates);
 
-        // --- FIX: Borrar producto ghost si la cantidad se puso a 0 y es ghost ---
         if (selectedProduct?.is_ghost && updates.quantity !== undefined && Number(updates.quantity) <= 0) {
-            await supabase.from('inventory_items').delete().eq('id', batchId);
+            await inventoryService.deleteBatch(batchId);
 
             const { data: remainingBatches } = await supabase
                 .from('inventory_items')
@@ -463,7 +417,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
             const totalRemaining = remainingBatches?.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) || 0;
 
             if (totalRemaining <= 0) {
-                await supabase.from('product_definitions').delete().eq('id', selectedProduct.product_id);
+                await inventoryService.deleteProduct(selectedProduct.product_id);
                 setSelectedProduct(null);
             }
         }
@@ -472,24 +426,9 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 
     const handleMoveBatch = async (batch: InventoryItem, newLoc: string, qty: number, dates?: { origin: Date | undefined, dest: Date | undefined }) => {
         try {
-            const originDate = dates?.origin ? format(dates.origin, 'yyyy-MM-dd') : batch.expiry_date;
             const destDate = dates?.dest ? format(dates.dest, 'yyyy-MM-dd') : batch.expiry_date;
-
-            if (qty >= batch.quantity) {
-                await supabase.from('inventory_items').update({ location: newLoc, expiry_date: destDate } as any).eq('id', batch.id);
-            } else {
-                await supabase.from('inventory_items').update({ quantity: batch.quantity - qty, expiry_date: originDate } as any).eq('id', batch.id);
-                await supabase.from('inventory_items').insert({
-                    household_id: batch.household_id,
-                    product_id: batch.product_id,
-                    name: batch.name,
-                    category: batch.category,
-                    unit: batch.unit,
-                    quantity: qty,
-                    location: newLoc,
-                    expiry_date: destDate
-                });
-            }
+            await inventoryService.moveBatch(batch, newLoc, qty, destDate || undefined);
+            
             toast({ title: "Movido", description: `${qty} ${batch.unit} a ${newLoc}.` });
             fetchData();
         } catch (e: any) {
@@ -499,10 +438,8 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 
     const handleMoveAllBatches = async (destination: string) => {
         if (!selectedProduct) return;
-        const batches = rawInventoryItems.filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0);
-        for (const batch of batches) {
-            await supabase.from('inventory_items').update({ location: destination } as any).eq('id', batch.id);
-        }
+        await inventoryService.moveAllProductBatches(selectedProduct.product_id, destination, rawInventoryItems);
+        
         toast({ title: "Movido", description: `Todo el stock a ${destination}.` });
         fetchData();
         setIsMassCustomMode(false);
@@ -511,7 +448,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
 
     const handleAddToShoppingList = async (item: any) => {
         try {
-            const { error } = await supabase.from('shopping_list').insert({
+            const { error } = await inventoryService.addToShoppingList({
                 household_id: householdId,
                 item_name: item.name,
                 category: item.category,
@@ -521,11 +458,9 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 is_manual: true
             });
 
-            if (error) throw error; // <-- ESTE ES EL CHIVATO MÁGICO
-
+            if (error) throw error;
             toast({ title: "Añadido", description: `${item.name} a la lista de compra.` });
         } catch (e: any) {
-            // AHORA SÍ VEREMOS EL ERROR REAL EN ROJO
             toast({ title: "Error al añadir", description: e.message, variant: "destructive" });
         }
     };
@@ -533,7 +468,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     // Wrapper para inserción manual que refresca datos
     const handleBatchAddedManual = async () => {
         if (selectedProduct) {
-            await supabase.from('inventory_items').delete().eq('product_id', selectedProduct.product_id).eq('quantity', 0);
+            await inventoryService.cleanupZeroQuantityBatches(selectedProduct.product_id);
         }
         fetchData();
     }
