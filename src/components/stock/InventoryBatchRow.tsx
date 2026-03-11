@@ -27,6 +27,7 @@ interface InventoryBatchRowProps {
   onUpdate: (batchId: string, updates: any) => void;
   onDelete: (batchId: string) => void;
   onMove: (batch: any, newLoc: string, qty: number, dates?: { origin: Date|undefined, dest: Date|undefined }) => void;
+  locationSuggestions?: string[];
 }
 
 export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
@@ -36,6 +37,7 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
   onUpdate,
   onDelete,
   onMove,
+  locationSuggestions,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editQty, setEditQty] = useState(batch.quantity.toString());
@@ -119,14 +121,14 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
                     <Pencil className="h-4 w-4"/>
                 </Button>
 
-                <Popover open={isMoveOpen} onOpenChange={setIsMoveOpen}>
+                <Popover open={isMoveOpen} onOpenChange={setIsMoveOpen} modal={false}>
                     <PopoverTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10">
                             <ArrowRightLeft className="h-4 w-4" />
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-72 p-4 bg-zinc-950 border-zinc-700 shadow-xl">
-                        <div className="space-y-4">
+                        <div className="space-y-4 w-full">
                             <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                                 <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Mover / Dividir</h4>
                             </div>
@@ -161,7 +163,7 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
                             )}
                             <div className="space-y-1">
                                 <Label className="text-[10px] text-zinc-500 uppercase font-bold">Mover a</Label>
-                                <LocationAutocomplete value={moveLocation} onChange={setMoveLocation} householdId={householdId} placeholder="Nueva ubicación..." />
+                                <LocationAutocomplete value={moveLocation} onChange={setMoveLocation} householdId={householdId} placeholder="Nueva ubicación..." suggestions={locationSuggestions} />
                             </div>
                             <Button className="w-full h-8 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs" onClick={handleMoveConfirm}>Confirmar Movimiento</Button>
                         </div>
@@ -174,26 +176,27 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
             </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 animate-in fade-in bg-zinc-950/50 p-2 rounded border border-blue-500/30">
-            <div className="flex gap-2">
-                <div className="w-20">
+        <div className="flex flex-col gap-3 animate-in fade-in bg-zinc-950/50 p-2 rounded border border-blue-500/30 w-full min-w-0 overflow-hidden">
+            <div className="flex gap-2 w-full min-w-0">
+                <div className="w-20 shrink-0">
                     <Label className="text-[10px] text-zinc-500 font-bold">Cant.</Label>
                     <Input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} className="h-8 bg-zinc-900 border-zinc-700 text-center font-bold" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <Label className="text-[10px] text-zinc-500 font-bold">Ubicación</Label>
                     <LocationAutocomplete 
                          value={editLocation} 
                          onChange={setEditLocation} 
                          householdId={householdId} 
                          placeholder="¿Dónde lo guardas?" 
+                         suggestions={locationSuggestions}
                     />
                 </div>
             </div>
-            <div className="flex gap-2">
-                <div className="flex-1">
+            <div className="flex gap-2 w-full min-w-0">
+                <div className="flex-1 min-w-0">
                     <Label className="text-[10px] text-zinc-500 font-bold">Caducidad</Label>
-                    <Popover>
+                    <Popover modal={false}>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full h-8 justify-start text-left font-normal bg-zinc-900 border-zinc-700 text-xs", !editDate && "text-zinc-500")}>
                                 <CalendarIcon className="mr-2 h-3 w-3" />
@@ -203,7 +206,7 @@ export const InventoryBatchRow: React.FC<InventoryBatchRowProps> = ({
                         <PopoverContent className="w-auto p-0 bg-zinc-950 border-zinc-800 text-white"><Calendar mode="single" selected={editDate} onSelect={setEditDate} initialFocus className="bg-zinc-950 text-white"/></PopoverContent>
                     </Popover>
                 </div>
-                <div className="w-24">
+                <div className="w-24 shrink-0">
                     <Label className="text-[10px] text-zinc-500 font-bold">Precio (€)</Label>
                     <Input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="h-8 bg-zinc-900 border-zinc-700 text-right" placeholder="0.00" />
                 </div>

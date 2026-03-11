@@ -677,9 +677,9 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                         </PopoverContent>
                                                     </Popover>
                                                 </div>
-                                                <div className="space-y-2">
+                                                <div className="space-y-2 w-full min-w-0">
                                                     {rawInventoryItems.filter(i => i.product_id === selectedProduct.product_id && i.quantity > 0).sort((a, b) => new Date(a.expiry_date || '9999').getTime() - new Date(b.expiry_date || '9999').getTime()).map(batch => (
-                                                        <InventoryBatchRow key={batch.id} batch={batch} unit={selectedProduct.unit} householdId={householdId} onDelete={handleDeleteBatch} onUpdate={handleUpdateBatch} onMove={handleMoveBatch} />
+                                                        <InventoryBatchRow key={batch.id} batch={batch} unit={selectedProduct.unit} householdId={householdId} onDelete={handleDeleteBatch} onUpdate={handleUpdateBatch} onMove={handleMoveBatch} locationSuggestions={locationSuggestions} />
                                                     ))}
                                                     {rawInventoryItems.every(i => i.product_id === selectedProduct.product_id && i.quantity === 0) && <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg"><p className="text-zinc-500 text-xs">Sin stock físico actualmente.</p></div>}
                                                 </div>
