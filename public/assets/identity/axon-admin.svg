@@ -1,0 +1,14 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Círculo exterior dentado (Caja Fuerte) -->
+  <circle cx="100" cy="100" r="90" stroke="white" stroke-width="4" stroke-dasharray="10 5" />
+  
+  <!-- Estructura Radial (Radios) -->
+  <path d="M100 10V40M100 160V190M10 100H40M160 100H190M36.36 36.36L57.57 57.57M142.43 142.43L163.64 163.64M36.36 163.64L57.57 142.43M142.43 36.36L163.64 57.57" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Engranaje Central -->
+  <circle cx="100" cy="100" r="25" stroke="white" stroke-width="4" />
+  <circle cx="100" cy="100" r="10" fill="white" />
+  
+  <!-- Detalles Decorativos Tech -->
+  <circle cx="100" cy="100" r="70" stroke="white" stroke-width="1" stroke-dasharray="2 8" opacity="0.5" />
+</svg>
