@@ -17,7 +17,7 @@ export const LoadingScreen: React.FC = () => {
 
     if (level === 4) {
         // Admin: Vault door
-        logoSrc = '/assets/identity/axon-admin.svg';
+        logoSrc = '/assets/identity/axon-admin.png';
         animationClass = 'animate-[spin_10s_linear_infinite]';
     } else if (level === 2 || level === 3) {
         // Teen/Junior: Glow and pulse
