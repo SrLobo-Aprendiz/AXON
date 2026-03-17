@@ -61,35 +61,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Load user data after auth state change
   const loadUserData = useCallback(async (userId: string) => {
-    const userProfile = await fetchProfile(userId);
+    try {
+      const userProfile = await fetchProfile(userId);
 
-    if (userProfile) {
-      setProfile(userProfile);
-      
-      // PERSISTENCIA DE IDENTIDAD: Guardar nivel para carga inmediata del logo
-      localStorage.setItem('axon_user_level', userProfile.level?.toString() || '');
-      localStorage.setItem('axon_user_name', userProfile.full_name || '');
+      if (userProfile) {
+        setProfile(userProfile);
+        
+        // PERSISTENCIA DE IDENTIDAD: Guardar nivel para carga inmediata del logo
+        localStorage.setItem('axon_user_level', userProfile.level?.toString() || '');
+        localStorage.setItem('axon_user_name', userProfile.full_name || '');
 
-      const { data: memberData } = await householdService.getMemberData(userId);
+        const { data: memberData } = await householdService.getMemberData(userId);
 
-      if (memberData && memberData.household_id) {
-        const household = await fetchHousehold(memberData.household_id);
+        if (memberData && memberData.household_id) {
+          const household = await fetchHousehold(memberData.household_id);
 
-        if (household) {
-          setCurrentHousehold(household);
-          setCurrentRole(memberData.role as HouseholdMember['role']);
+          if (household) {
+            setCurrentHousehold(household);
+            setCurrentRole(memberData.role as HouseholdMember['role']);
 
-          if (userProfile.current_household_id !== household.id) {
-            profileService.updateProfile(userId, { current_household_id: household.id });
+            if (userProfile.current_household_id !== household.id) {
+              profileService.updateProfile(userId, { current_household_id: household.id });
+            }
+          } else {
+            setCurrentHousehold(null);
+            setCurrentRole(null);
           }
         } else {
           setCurrentHousehold(null);
           setCurrentRole(null);
         }
       } else {
+        // PERFIL NO ENCONTRADO: Desbloqueamos la pantalla de carga para permitir el setup
+        console.warn('Profile not found for user:', userId);
+        setProfile(null);
         setCurrentHousehold(null);
         setCurrentRole(null);
       }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      setProfile(null);
+      setCurrentHousehold(null);
+      setCurrentRole(null);
+    } finally {
+      setIsLoading(false);
     }
   }, [fetchProfile, fetchHousehold]);
 
@@ -111,8 +126,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setProfile(null);
           setCurrentHousehold(null);
           setCurrentRole(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
 
