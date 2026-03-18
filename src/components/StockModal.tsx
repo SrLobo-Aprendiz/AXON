@@ -387,17 +387,26 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     };
 
     const handleDeleteBatch = async (batchId: string) => {
-        await inventoryService.deleteBatch(batchId);
+        const batchToDelete = rawInventoryItems.find(i => i.id === batchId);
+        const productBatches = rawInventoryItems.filter(i => i.product_id === batchToDelete?.product_id);
 
-        if (selectedProduct?.is_ghost) {
-            const { data: remainingBatches } = await supabase
-                .from('inventory_items')
-                .select('id, quantity')
-                .eq('product_id', selectedProduct.product_id);
+        if (productBatches.length === 1 && !selectedProduct?.is_ghost) {
+            // "Lote Fantasma": Si es el último lote de un producto que no es "puntual", 
+            // lo dejamos a 0 para que sigan funcionando los avisos y la auto-compra.
+            await inventoryService.updateBatch(batchId, { quantity: 0, expiry_date: null });
+        } else {
+            await inventoryService.deleteBatch(batchId);
 
-            if (!remainingBatches || remainingBatches.length === 0) {
-                await inventoryService.deleteProduct(selectedProduct.product_id);
-                setSelectedProduct(null);
+            if (selectedProduct?.is_ghost) {
+                const { data: remainingBatches } = await supabase
+                    .from('inventory_items')
+                    .select('id, quantity')
+                    .eq('product_id', selectedProduct.product_id);
+
+                if (!remainingBatches || remainingBatches.length === 0) {
+                    await inventoryService.deleteProduct(selectedProduct.product_id);
+                    setSelectedProduct(null);
+                }
             }
         }
         fetchData();

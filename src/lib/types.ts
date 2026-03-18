@@ -19,7 +19,7 @@ export interface ProductDefinition {
   name: string;
   category: string;
   unit: 'uds' | 'kg' | 'g' | 'L' | 'ml';
-  importance_level: 'critical' | 'high' | 'normal' | 'ghost';
+  importance_level: 'critical' | 'high' | 'normal' | 'low' | 'ghost';
   min_quantity: number | null; 
   is_ghost: boolean;
   created_at: string;
@@ -35,6 +35,7 @@ export interface InventoryItem {
   location: string;
   price?: number | null; // ✅ NUEVO CAMPO AÑADIDO
   created_at: string;
+  is_ghost?: boolean;
   
   // JOIN: Opcional para facilitar lectura en frontend
   product?: ProductDefinition; 
@@ -60,7 +61,7 @@ export type ShoppingListItem = Database['public']['Tables']['shopping_list']['Ro
 };
 
 export type FridgeItem = Database['public']['Tables']['fridge_items']['Row'] & {
-  layer?: 'global' | 'personal' | 'critical' | 'high' | 'normal'; 
+  layer?: 'global' | 'personal' | 'critical' | 'high' | 'normal' | 'low'; 
   rotation?: number;
   content?: string | null; 
 };

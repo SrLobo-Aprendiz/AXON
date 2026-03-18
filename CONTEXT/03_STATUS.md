@@ -79,8 +79,11 @@
 - [x] **Adaptive Branding:** Pantalla de carga y Header dinámicos según el `profile.level` (Admin/Teen/Kid).
 - [x] **Sync DB (Profiles):** Columna `level` sincronizada e integrada en el frontend.
 - [x] **Asset Cache-Busting**: Implementado sistema de versiones para el favicon y branding oficial.
+- [x] **Labs Infrastructure Fix**: Restaurados triggers de creación automática de perfiles y políticas RLS para hogares (autoría automática).
+- [x] **Surgical Design v1.5**: Redactado el Plan de Arquitectura Detallado para la identidad, gestión de hogar y motor de conflictos.
 
 ## 🚧 EN PROCESO (WIP)
+- [ ] **Fase 1.5 - OS de Convivencia**: Pendiente aprobación del CPO para iniciar construcción según `architectural_design_plan_v1_5.md`.
 - [ ] **RLS Liquid Trust:** Políticas de Supabase basadas en Capabilities/Levels.
 - [ ] **i18n Engine:** Configurar traducciones para el "Pack Nacional".
 

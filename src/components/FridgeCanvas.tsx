@@ -77,13 +77,15 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
   const runAutomation = useCallback(async () => {
     if (!householdId) return;
 
-    const [inventoryRes, shoppingListRes, receptionRes] = await Promise.all([
+    const [inventoryRes, productsRes, shoppingListRes, receptionRes] = await Promise.all([
       supabase.from('inventory_items').select('*, product:product_definitions(*)').eq('household_id', householdId),
+      supabase.from('product_definitions').select('*').eq('household_id', householdId).eq('is_ghost', false),
       supabase.from('shopping_list').select('id, item_name, is_manual').eq('household_id', householdId).in('status', ['active', 'checked', 'postponed']),
       supabase.from('shopping_list').select('item_name, quantity').eq('household_id', householdId).eq('status', 'bought')
     ]);
 
     const inventory = (inventoryRes.data || []) as InventoryItemWithProduct[];
+    const products = (productsRes.data || []) as any[];
 
     const shoppingListMap = new Map<string, { id: string; is_manual: boolean }>();
     shoppingListRes.data?.forEach((i: { id: string; item_name: string; is_manual?: boolean }) =>
@@ -108,6 +110,29 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
       isExpiring: boolean
     }>();
 
+    // 1. Inicializar con definiciones de productos conocidos
+    products.forEach(prod => {
+      const key = prod.name.trim().toLowerCase();
+      let threshold = 0;
+      if (prod.min_quantity !== null) threshold = prod.min_quantity;
+      else {
+        if (prod.importance_level === 'critical') threshold = 4;
+        else if (prod.importance_level === 'high') threshold = 2;
+        else threshold = 1;
+      }
+
+      productStats.set(key, {
+        name: prod.name,
+        totalQty: 0,
+        effectiveQty: 0,
+        minQty: threshold,
+        importance: prod.importance_level || 'normal',
+        category: prod.category || 'Pantry',
+        isExpiring: false
+      });
+    });
+
+    // 2. Mezclar el stock real de los lotes
     inventory.forEach(item => {
       const prod = item.product;
       if (prod?.is_ghost || item.is_ghost) return;
@@ -120,21 +145,12 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
       const effectiveQty = isExpiringBatch ? 0 : item.quantity;
 
       if (!productStats.has(key)) {
-        let threshold = 0;
-        if (prod) {
-          if (prod.min_quantity !== null) threshold = prod.min_quantity;
-          else {
-            if (prod.importance_level === 'critical') threshold = 4;
-            else if (prod.importance_level === 'high') threshold = 2;
-            else threshold = 1;
-          }
-        }
-
+        // Fallback para items sin definición (no debería pasar con productos fijos)
         productStats.set(key, {
           name: prod ? prod.name : item.name,
           totalQty: 0,
           effectiveQty: 0,
-          minQty: threshold,
+          minQty: 0,
           importance: prod ? prod.importance_level : 'normal',
           category: prod ? prod.category : item.category,
           isExpiring: false
