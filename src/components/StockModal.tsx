@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { ERROR_CODES, getErrorContent } from '@/lib/constants/errors';
 
 // Componentes Modulares
 import { ReceptionRow } from '@/components/stock/ReceptionRow';
@@ -455,13 +456,24 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                 priority: item.importance_level,
                 status: 'active',
                 quantity: 1,
-                is_manual: true
+                is_manual: true,
+                product_id: item.product_id
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.code === '23505' || error.message?.includes('duplicate key')) {
+                    const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.DUPLICATE_ITEM);
+                    toast({ ...errInfo, variant: "default" });
+                } else {
+                    const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.SAVE_FAILED, error.message);
+                    toast({ ...errInfo, variant: "destructive" });
+                }
+                return;
+            }
             toast({ title: "Añadido", description: `${item.name} a la lista de compra.` });
         } catch (e: any) {
-            toast({ title: "Error al añadir", description: e.message, variant: "destructive" });
+            const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.SAVE_FAILED, e.message);
+            toast({ ...errInfo, variant: "destructive" });
         }
     };
 

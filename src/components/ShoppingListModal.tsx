@@ -6,7 +6,7 @@ import {
   Snowflake, Coffee,
   AlertCircle, AlertTriangle, Ghost,
   ArrowRight, Clock, LayoutGrid, Search, X, Loader2,
-  Fish, Sparkles, Apple, Leaf, ShoppingBag, Home
+  Fish, Sparkles, Apple, Leaf, ShoppingBag, Home, Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+import { ERROR_CODES, getErrorContent } from '@/lib/constants/errors';
 
 // Interfaces locales para evitar dependencias rotas
 interface ShoppingListItem {
@@ -29,6 +30,9 @@ interface ShoppingListItem {
   priority: string;
   is_ghost: boolean;
   is_manual: boolean;
+  added_by: string;
+  product_id?: string | null;
+  product?: ProductDefinition | null;
   created_at: string;
 }
 
@@ -82,6 +86,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
   const [isGhost, setIsGhost] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'active' | 'postponed'>('active');
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   // --- ESTADOS DE AUTOCOMPLETADO ---
   const [searchResults, setSearchResults] = useState<ProductDefinition[]>([]);
@@ -116,6 +121,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
 
   const handleSelectSuggestion = (product: ProductDefinition) => {
       setNewItemName(product.name);
+      setSelectedProductId(product.id);
       if (!viewFilter) {
           setAddItemCategory(product.category);
       }
@@ -126,7 +132,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
     if (!householdId) return;
     const { data, error } = await supabase
       .from('shopping_list')
-      .select('*')
+      .select('*, product:product_definitions(*)')
       .eq('household_id', householdId)
       .not('status', 'in', '("bought","archived")') 
       .order('created_at', { ascending: false });
@@ -144,53 +150,81 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
   }, [isOpen, householdId, fetchItems]);
 
   const handleAddItem = async () => {
-    if (!newItemName.trim() || !user) return;
+    const name = newItemName.trim();
+    if (!name || !user) return;
     setIsLoading(true);
 
-    const tempId = crypto.randomUUID();
     const categoryToUse = viewFilter || addItemCategory;
+    const currentProductId = selectedProductId;
+
+    // 1. Evitar duplicados (Optimización Humana)
+    const isDuplicate = items.some(i => {
+      if (currentProductId && i.product_id) return i.product_id === currentProductId;
+      if (!currentProductId) return i.item_name.toLowerCase() === name.toLowerCase();
+      return false;
+    });
+
+    if (isDuplicate) {
+      const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.DUPLICATE_ITEM);
+      toast({ ...errInfo, variant: "default" });
+      setIsLoading(false);
+      return;
+    }
+
+    const tempId = Math.random().toString(36).substring(2, 15);
 
     // UI Optimista
     const optimisticItem: ShoppingListItem = {
       id: tempId,
       household_id: householdId,
-      item_name: newItemName.trim(),
+      item_name: name,
       category: categoryToUse,
       quantity: 1,
       unit: 'uds',
       status: 'active',
       added_by: user.id,
       is_manual: true,
-      is_ghost: isGhost,
+      product_id: currentProductId,
+      is_ghost: false,
       priority: 'stocked',
       created_at: new Date().toISOString()
     };
+    
     setItems(prev => [optimisticItem, ...prev]);
-
     setNewItemName(''); 
-    setIsGhost(false); 
+    setSelectedProductId(null);
     setShowSuggestions(false);
 
-    // Llamada DB
-    const { error } = await supabase.from('shopping_list').insert({
-      household_id: householdId,
-      item_name: optimisticItem.item_name, 
-      category: categoryToUse,
-      quantity: 1,
-      status: 'active',
-      added_by: user.id,
-      is_manual: true,
-      is_ghost: isGhost,
-      priority: 'stocked'
-    });
+    try {
+      const { error } = await supabase.from('shopping_list').insert({
+        household_id: householdId,
+        item_name: name, 
+        category: categoryToUse,
+        quantity: 1,
+        status: 'active',
+        added_by: user.id,
+        is_manual: true,
+        product_id: currentProductId,
+        is_ghost: false,
+        priority: 'stocked'
+      });
 
-    if (error) {
-      toast({ title: "Error", description: "No se pudo guardar.", variant: "destructive" });
-      fetchItems();
-    } else {
-      fetchItems();
+      if (error) {
+        if (error.code === '23505' || error.message?.includes('duplicate key')) {
+          const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.DUPLICATE_ITEM);
+          toast({ ...errInfo, variant: "default" });
+        } else {
+          const errInfo = getErrorContent(ERROR_CODES.SHOPPING_LIST.SAVE_FAILED, error.message);
+          toast({ ...errInfo, variant: "destructive" });
+        }
+        await fetchItems();
+      }
+    } catch (e) {
+      console.error("Error adding item:", e);
+      await fetchItems();
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -292,6 +326,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ isOpen, on
                             value={newItemName} 
                             onChange={(e) => {
                                 setNewItemName(e.target.value);
+                                if (selectedProductId) setSelectedProductId(null);
                                 setShowSuggestions(true);
                             }} 
                             onFocus={() => setShowSuggestions(true)}
