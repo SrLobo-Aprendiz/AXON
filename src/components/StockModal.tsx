@@ -106,19 +106,19 @@ const ProductRow = React.memo(({
                 <div className={cn("absolute top-0 left-0 px-2 py-0.5 text-[8px] font-black tracking-tighter bg-zinc-800/80 rounded-br-lg shadow-sm z-10", priorityTextColor)}>
                     {priorityText}
                 </div>
-                <div className="flex-1 min-w-0 pr-1 pt-1 shrink">
-                    <div className="font-bold text-[13.5px] text-zinc-100 leading-tight mb-0.5 truncate">{item.name}</div>
-                    <div className="flex items-center gap-2 text-[11.5px]">
-                        <div className="flex items-center gap-1 text-zinc-400 font-medium whitespace-nowrap">
+                <div className="flex-1 min-w-0 pr-1 shrink">
+                    <div className="font-bold text-[13.5px] text-zinc-100 leading-tight mb-0.5 truncate w-full">{item.name}</div>
+                    <div className="flex items-center gap-2 text-[11.5px] w-full">
+                        <div className="flex items-center gap-1 text-zinc-400 font-medium whitespace-nowrap shrink-0">
                             <Layers className="w-3 h-3 text-zinc-500" />
                             <span>{item.batches.length} {item.batches.length === 1 ? 'lote' : 'lotes'}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-zinc-500 italic truncate opacity-70">
+                        <div className="flex items-center gap-1 text-zinc-500 italic truncate opacity-70 min-w-0 flex-1">
                             • {Object.keys(item.locations).join(', ')}
                         </div>
                     </div>
                 </div>
-                <div className="shrink-0 flex flex-col items-end min-w-[65px]">
+                <div className="shrink-0 flex flex-col items-end min-w-[60px] w-auto">
                     <div className={cn("font-mono font-bold text-[13px] px-1.5 py-0.5 rounded-md whitespace-nowrap", item.total_quantity === 0 ? "text-red-400 bg-red-400/10" : "text-zinc-100 bg-zinc-800/50")}>
                         {item.total_quantity} <span className="text-[10px] opacity-70 ml-0.5">{item.unit}</span>
                     </div>
