@@ -1,0 +1,10 @@
+{
+  "documentation": {
+    "path": ".continue/rules.md"
+  },
+  "codebaseIndexing": {
+    "enabled": true,
+    "includePatterns": ["src/**/*.{ts,tsx}"],
+    "excludePatterns": ["node_modules/**", "dist/**"]
+  }
+}

@@ -1,0 +1,7 @@
+# REGLAS DEL BÚNKER (OLLAMA + QWEN)
+
+- No importa el modo (Code, Architect o Ask): NUNCA uses JSON para ejecutar herramientas.
+- Usa ÚNICAMENTE etiquetas XML.
+- Ejemplo: <list_files path="." /> o <read_file path="archivo.py" />
+- Si intentas cambiar de modo y el nuevo modo usa JSON, detente y vuelve a XML.
+- Tienes prohibido responder con bloques de código que empiecen por { "tool": ... }.

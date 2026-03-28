@@ -36,5 +36,5 @@ Thumbs.db
 coverage/
 
 # Documentación interna y cursos
-CONTEXT/
-ibm introduccion a la ingeniria de software/
+# Carpeta de comparación (Solo lectura)
+"AXON-main para comparar/"

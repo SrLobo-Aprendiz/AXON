@@ -1,0 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Axon Design System - Warm, approachable household aesthetic
+   Primary: Coral/Salmon tones for warmth
+   Accent: Teal for trust and contrast
+   All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Core brand colors - Warm coral primary */
+    --background: 30 50% 98%;
+    --foreground: 20 25% 15%;
+
+    --card: 30 40% 99%;
+    --card-foreground: 20 25% 15%;
+
+    --popover: 30 40% 99%;
+    --popover-foreground: 20 25% 15%;
+
+    /* Coral/Salmon primary - warm and inviting */
+    --primary: 12 76% 61%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Soft cream secondary */
+    --secondary: 35 45% 94%;
+    --secondary-foreground: 20 25% 20%;
+
+    --muted: 30 30% 92%;
+    --muted-foreground: 20 15% 45%;
+
+    /* Teal accent for contrast */
+    --accent: 174 60% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success - soft green */
+    --success: 142 55% 49%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - warm amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 25% 15%;
+
+    --border: 30 25% 88%;
+    --input: 30 25% 88%;
+    --ring: 12 76% 61%;
+
+    --radius: 1rem;
+
+    /* Sidebar - warm neutral */
+    --sidebar-background: 30 35% 96%;
+    --sidebar-foreground: 20 20% 30%;
+    --sidebar-primary: 12 76% 61%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 174 60% 45%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 30 25% 88%;
+    --sidebar-ring: 12 76% 61%;
+
+    /* Custom Axon tokens */
+    --household-glow: 12 76% 61%;
+    --fridge-bg: 200 30% 95%;
+    --fridge-magnet: 12 70% 55%;
+  }
+
+  .dark {
+    --background: 20 20% 8%;
+    --foreground: 30 30% 95%;
+
+    --card: 20 18% 12%;
+    --card-foreground: 30 30% 95%;
+
+    --popover: 20 18% 12%;
+    --popover-foreground: 30 30% 95%;
+
+    --primary: 12 76% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 20 15% 18%;
+    --secondary-foreground: 30 30% 90%;
+
+    --muted: 20 12% 20%;
+    --muted-foreground: 30 20% 60%;
+
+    --accent: 174 55% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 50% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 45%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 20 15% 22%;
+    --input: 20 15% 22%;
+    --ring: 12 76% 55%;
+
+    --sidebar-background: 20 18% 10%;
+    --sidebar-foreground: 30 25% 85%;
+    --sidebar-primary: 12 76% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 174 55% 40%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 20 15% 22%;
+    --sidebar-ring: 12 76% 55%;
+
+    --household-glow: 12 70% 50%;
+    --fridge-bg: 200 20% 15%;
+    --fridge-magnet: 12 65% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .glass {
+    @apply bg-white/70 dark:bg-black/30 backdrop-blur-md;
+  }
+
+  .household-glow {
+    box-shadow: 0 0 30px hsl(var(--household-glow) / 0.3);
+  }
+
+  .fridge-surface {
+    @apply bg-gradient-to-br from-[hsl(var(--fridge-bg))] to-[hsl(200_25%_90%)];
+    background-image: 
+      radial-gradient(circle at 20% 20%, hsl(var(--fridge-bg)) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, hsl(200 35% 92%) 0%, transparent 50%);
+  }
+
+  .dark .fridge-surface {
+    @apply bg-gradient-to-br from-[hsl(var(--fridge-bg))] to-[hsl(200_15%_12%)];
+  }
+}

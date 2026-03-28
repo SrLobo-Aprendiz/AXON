@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { FridgeItem, InventoryItem, ProductDefinition } from '../lib/types';
+import type { FridgeItem, InventoryItem, ProductDefinition } from '../lib/types';
+import { calculateAutomation } from '@/lib/services/automation';
 import {
   Plus, ShoppingCart, StickyNote, AlertCircle, Info, Coffee,
   ChevronDown, ChevronRight, Trash2, PackageSearch, AlertTriangle,
@@ -19,11 +20,6 @@ import { StockModal } from './StockModal';
 
 interface FridgeCanvasProps {
   householdId: string;
-}
-
-// Interfaz extendida para el Join
-interface InventoryItemWithProduct extends InventoryItem {
-  product?: ProductDefinition;
 }
 
 type Priority = 'critical' | 'normal' | 'low';
@@ -77,141 +73,72 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
   const runAutomation = useCallback(async () => {
     if (!householdId) return;
 
-    const [inventoryRes, shoppingListRes, receptionRes] = await Promise.all([
+    const [inventoryRes, productsRes, shoppingListRes, receptionRes] = await Promise.all([
       supabase.from('inventory_items').select('*, product:product_definitions(*)').eq('household_id', householdId),
+      supabase.from('product_definitions').select('*').eq('household_id', householdId),
       supabase.from('shopping_list').select('id, item_name, is_manual').eq('household_id', householdId).in('status', ['active', 'checked', 'postponed']),
       supabase.from('shopping_list').select('item_name, quantity').eq('household_id', householdId).eq('status', 'bought')
     ]);
 
-    const inventory = (inventoryRes.data || []) as InventoryItemWithProduct[];
+    const inventory = (inventoryRes.data ?? []) as (InventoryItem & { product?: ProductDefinition })[];
+    const products = (productsRes.data ?? []) as ProductDefinition[];
 
-    const shoppingListMap = new Map<string, { id: string; is_manual: boolean }>();
-    shoppingListRes.data?.forEach((i: { id: string; item_name: string; is_manual?: boolean }) =>
-      shoppingListMap.set(i.item_name.trim().toLowerCase(), { id: i.id, is_manual: !!i.is_manual })
+    const shoppingListMap = new Map<string, { id: string; is_manual: boolean | null }>();
+    shoppingListRes.data?.forEach((i) =>
+      shoppingListMap.set(i.item_name.trim().toLowerCase(), { id: i.id, is_manual: i.is_manual })
     );
 
-    const receptionMap = new Map<string, number>();
-    receptionRes.data?.forEach(i => {
-      const k = i.item_name.trim().toLowerCase();
-      receptionMap.set(k, (receptionMap.get(k) || 0) + (i.quantity || 1));
+    const receptionMap = new Map<string, boolean>();
+    receptionRes.data?.forEach((i) => {
+      receptionMap.set(i.item_name.trim().toLowerCase(), true);
     });
 
+    // --- Delegate to pure function ---
+    const result = calculateAutomation(inventory, products, shoppingListMap, receptionMap);
+
+    // --- Execute side effects ---
+    // 1. Auto-add items to shopping list
+    for (const item of result.toUpsert) {
+      await supabase.from('shopping_list').upsert(
+        item,
+        { onConflict: 'household_id,item_name', ignoreDuplicates: true }
+      );
+    }
+
+    // 2. Remove items that are no longer needed
+    if (result.toDelete.length > 0) {
+      await supabase.from('shopping_list').delete().in('id', result.toDelete);
+    }
+
+    // --- Compute visual counters (expiry awareness for magnet UI) ---
     const today = new Date();
-    // Mapa por Producto -> Estadísticas
-    const productStats = new Map<string, {
-      name: string,
-      totalQty: number,
-      effectiveQty: number,
-      minQty: number,
-      importance: string,
-      category: string,
-      isExpiring: boolean
-    }>();
+    let cExpOnly = 0;
+    let critExp = false;
+    let highExp = false;
 
-    inventory.forEach(item => {
+    for (const item of inventory) {
+      if (item.is_ghost) continue;
       const prod = item.product;
-      if (prod?.is_ghost || item.is_ghost) return;
+      if (!prod || prod.is_ghost) continue;
 
-      const key = prod ? prod.name.trim().toLowerCase() : item.name.trim().toLowerCase();
-
-      // Lógica de caducidad estricta (<= 3 días)
       const daysLeft = item.expiry_date ? differenceInDays(new Date(item.expiry_date), today) : 999;
-      const isExpiringBatch = daysLeft <= 3;
-      const effectiveQty = isExpiringBatch ? 0 : item.quantity;
+      if (daysLeft > 3) continue;
 
-      if (!productStats.has(key)) {
-        let threshold = 0;
-        if (prod) {
-          if (prod.min_quantity !== null) threshold = prod.min_quantity;
-          else {
-            if (prod.importance_level === 'critical') threshold = 4;
-            else if (prod.importance_level === 'high') threshold = 2;
-            else threshold = 1;
-          }
-        }
+      const key = prod.name.trim().toLowerCase();
+      const stat = result.productStats.get(key);
 
-        productStats.set(key, {
-          name: prod ? prod.name : item.name,
-          totalQty: 0,
-          effectiveQty: 0,
-          minQty: threshold,
-          importance: prod ? prod.importance_level : 'normal',
-          category: prod ? prod.category : item.category,
-          isExpiring: false
-        });
-      }
-
-      const stat = productStats.get(key)!;
-      stat.totalQty += item.quantity;
-      stat.effectiveQty += effectiveQty;
-      if (isExpiringBatch) stat.isExpiring = true;
-    });
-
-    // Contadores para el Imán
-    let cCrit = 0, cHigh = 0, cNorm = 0, cExpOnly = 0;
-    let critExp = false, highExp = false;
-
-    const itemsToDeleteFromList: string[] = [];
-
-    for (const [nameKey, stats] of productStats.entries()) {
-      const realStock = stats.effectiveQty + (receptionMap.get(nameKey) || 0);
-      let priority: 'panic' | 'low' | null = null;
-      let isStockLow = false;
-
-      // ANALISIS DE ESTADO
-      if (stats.importance === 'critical' && realStock <= stats.minQty) {
-        priority = 'panic'; isStockLow = true; cCrit++;
-        if (stats.isExpiring) critExp = true;
-      }
-      else if (stats.importance === 'high' && realStock <= stats.minQty) {
-        priority = 'low'; isStockLow = true; cHigh++;
-        if (stats.isExpiring) highExp = true;
-      }
-      else if (stats.importance === 'normal' && realStock <= stats.minQty && stats.minQty > 0) {
-        priority = 'low'; // Opcional
-        cNorm++;
-      }
-
-      // Si no es stock bajo pero caduca (y no es ghost), cuenta como alerta de caducidad pura
-      if (!isStockLow && stats.isExpiring) {
+      if (stat && (stat.priority === 'panic' || stat.priority === 'urgent')) {
+        if (prod.importance_level === 'critical') critExp = true;
+        else if (prod.importance_level === 'high') highExp = true;
+      } else {
         cExpOnly++;
       }
-
-      // Fallback Legacy
-      if (!priority && !stats.importance) {
-        if (stats.minQty >= 4 && realStock <= 4) priority = 'panic';
-        else if (stats.minQty >= 2 && realStock <= 2) priority = 'low';
-      }
-
-      // 1. AUTO-COMPRA (Solo Critical y High)
-      if (['critical', 'high'].includes(stats.importance) && priority) {
-        if (!shoppingListMap.has(nameKey)) {
-          console.log(`🤖 Auto-compra: ${stats.name} (${priority})`);
-          await supabase.from('shopping_list').upsert({
-            household_id: householdId,
-            item_name: stats.name,
-            category: stats.category,
-            priority: priority,
-            is_manual: false,
-            status: 'active'
-          }, { onConflict: 'household_id, item_name', ignoreDuplicates: true } as any);
-        }
-      }
-      // 2. LIMPIEZA (no borrar ítems manuales)
-      else if (realStock > stats.minQty && shoppingListMap.has(nameKey)) {
-        const entry = shoppingListMap.get(nameKey)!;
-        if (!entry.is_manual) itemsToDeleteFromList.push(entry.id);
-      }
     }
 
-    if (itemsToDeleteFromList.length > 0) {
-      await supabase.from('shopping_list').delete().in('id', itemsToDeleteFromList);
-    }
-
-    // Actualizar estados visuales del imán
-    setCriticalCount(cCrit);
-    setHighCount(cHigh);
-    setNormalCount(cNorm);
+    // Update visual state
+    setCriticalCount(result.counters.critical);
+    setHighCount(result.counters.high);
+    setNormalCount(result.counters.normal);
     setExpiryOnlyCount(cExpOnly);
     setHasCriticalExpiry(critExp);
     setHasHighExpiry(highExp);
@@ -225,7 +152,7 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
     try {
       // A) Notas
       const { data: notesData } = await supabase.from('fridge_items').select('*').eq('household_id', householdId).order('created_at', { ascending: false });
-      if (notesData) setNotes((notesData as any) || []);
+      if (notesData) setNotes(notesData as FridgeItem[]);
 
       // B) Lista Compra
       const { data: shoppingData } = await supabase.from('shopping_list').select('priority').eq('household_id', householdId).not('status', 'in', '("bought","archived")');
@@ -276,7 +203,7 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
   // -- GESTIÓN DE NOTAS (UI Only) --
   const handleAddNote = async () => {
     if (!newNoteText.trim() || !user) return;
-    await supabase.from('fridge_items').insert({ household_id: householdId, content: newNoteText, layer: newNotePriority, created_by: user.id, position_x: 0, position_y: 0, rotation: 0 } as any);
+    await supabase.from('fridge_items').insert({ household_id: householdId, content: newNoteText, layer: newNotePriority, created_by: user.id, position_x: 0, position_y: 0, rotation: 0 });
     setNewNoteText(''); setIsAddingNote(false); fetchData();
   };
   const handleDeleteNote = async (noteId: string) => { if (confirm("¿Borrar?")) await supabase.from('fridge_items').delete().eq('id', noteId); fetchData(); };
@@ -356,7 +283,7 @@ export const FridgeCanvas: React.FC<FridgeCanvasProps> = ({ householdId }) => {
               <div className="flex items-center gap-1 mt-1 px-1 bg-black/20 rounded-full py-0.5 border border-white/5">
                 {criticalCount > 0 && (<div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm", hasCriticalExpiry ? (useLowPerfUI ? "bg-red-700" : "bg-gradient-to-br from-red-600 to-purple-600 animate-pulse") : "bg-red-600")}>{criticalCount}</div>)}
                 {highCount > 0 && (<div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm", hasHighExpiry ? (useLowPerfUI ? "bg-orange-700" : "bg-gradient-to-br from-orange-500 to-purple-600") : "bg-orange-500")}>{highCount}</div>)}
-                {normalCount > 0 && (<div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm">{normalCount}</div>)}
+                {normalCount > 0 && (<div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm">S</div>)}
                 {expiryOnlyCount > 0 && (<div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm"><Skull className="w-3 h-3" /></div>)}
                 {(criticalCount + highCount + normalCount + expiryOnlyCount) === 0 && (<div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[9px] font-bold text-white border border-black shadow-sm">✓</div>)}
               </div>

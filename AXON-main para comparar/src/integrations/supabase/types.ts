@@ -1,0 +1,976 @@
+﻿export type Json =
+    | string
+    | number
+    | boolean
+    | null
+    | { [key: string]: Json | undefined }
+    | Json[]
+
+export type Database = {
+    // Allows to automatically instantiate createClient with right options
+    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+    __InternalSupabase: {
+        PostgrestVersion: "14.1"
+    }
+    public: {
+        Tables: {
+            app_templates: {
+                Row: {
+                    code_name: string
+                    content: string
+                    created_at: string | null
+                    description: string | null
+                    id: string
+                    updated_at: string | null
+                }
+                Insert: {
+                    code_name: string
+                    content: string
+                    created_at?: string | null
+                    description?: string | null
+                    id?: string
+                    updated_at?: string | null
+                }
+                Update: {
+                    code_name?: string
+                    content?: string
+                    created_at?: string | null
+                    description?: string | null
+                    id?: string
+                    updated_at?: string | null
+                }
+                Relationships: []
+            }
+            chat_messages: {
+                Row: {
+                    content: string
+                    created_at: string
+                    deleted_at: string | null
+                    household_id: string
+                    id: string
+                    media_url: string | null
+                    message_type: Database["public"]["Enums"]["message_type"]
+                    sender_id: string
+                }
+                Insert: {
+                    content: string
+                    created_at?: string
+                    deleted_at?: string | null
+                    household_id: string
+                    id?: string
+                    media_url?: string | null
+                    message_type?: Database["public"]["Enums"]["message_type"]
+                    sender_id: string
+                }
+                Update: {
+                    content?: string
+                    created_at?: string
+                    deleted_at?: string | null
+                    household_id?: string
+                    id?: string
+                    media_url?: string | null
+                    message_type?: Database["public"]["Enums"]["message_type"]
+                    sender_id?: string
+                }
+                Relationships: []
+            }
+            fridge_items: {
+                Row: {
+                    content: string | null
+                    created_at: string | null
+                    created_by: string | null
+                    household_id: string
+                    id: string
+                    image_url: string | null
+                    is_locked: boolean | null
+                    layer: string | null
+                    position_x: number | null
+                    position_y: number | null
+                    rotation: number | null
+                }
+                Insert: {
+                    content?: string | null
+                    created_at?: string | null
+                    created_by?: string | null
+                    household_id: string
+                    id?: string
+                    image_url?: string | null
+                    is_locked?: boolean | null
+                    layer?: string | null
+                    position_x?: number | null
+                    position_y?: number | null
+                    rotation?: number | null
+                }
+                Update: {
+                    content?: string | null
+                    created_at?: string | null
+                    created_by?: string | null
+                    household_id?: string
+                    id?: string
+                    image_url?: string | null
+                    is_locked?: boolean | null
+                    layer?: string | null
+                    position_x?: number | null
+                    position_y?: number | null
+                    rotation?: number | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "fridge_items_created_by_fkey"
+                        columns: ["created_by"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "fridge_items_family_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            graffiti_layers: {
+                Row: {
+                    color: string
+                    created_at: string | null
+                    creator_id: string | null
+                    id: string
+                    opacity: number | null
+                    space_id: string | null
+                    vector_path: Json
+                }
+                Insert: {
+                    color: string
+                    created_at?: string | null
+                    creator_id?: string | null
+                    id?: string
+                    opacity?: number | null
+                    space_id?: string | null
+                    vector_path: Json
+                }
+                Update: {
+                    color?: string
+                    created_at?: string | null
+                    creator_id?: string | null
+                    id?: string
+                    opacity?: number | null
+                    space_id?: string | null
+                    vector_path?: Json
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "graffiti_layers_space_id_fkey"
+                        columns: ["space_id"]
+                        isOneToOne: false
+                        referencedRelation: "social_spaces"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            household_members: {
+                Row: {
+                    created_at: string | null
+                    household_id: string
+                    id: string
+                    nickname: string | null
+                    role: string | null
+                    user_id: string
+                }
+                Insert: {
+                    created_at?: string | null
+                    household_id: string
+                    id?: string
+                    nickname?: string | null
+                    role?: string | null
+                    user_id: string
+                }
+                Update: {
+                    created_at?: string | null
+                    household_id?: string
+                    id?: string
+                    nickname?: string | null
+                    role?: string | null
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "household_members_household_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            household_uploads: {
+                Row: {
+                    created_at: string | null
+                    file_path: string
+                    household_id: string
+                    id: string
+                    size_bytes: number
+                }
+                Insert: {
+                    created_at?: string | null
+                    file_path: string
+                    household_id: string
+                    id?: string
+                    size_bytes?: number
+                }
+                Update: {
+                    created_at?: string | null
+                    file_path?: string
+                    household_id?: string
+                    id?: string
+                    size_bytes?: number
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "family_uploads_family_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            households: {
+                Row: {
+                    created_at: string | null
+                    created_by: string | null
+                    id: string
+                    name: string
+                    storage_limit_mb: number | null
+                    storage_used_mb: number | null
+                }
+                Insert: {
+                    created_at?: string | null
+                    created_by?: string | null
+                    id?: string
+                    name: string
+                    storage_limit_mb?: number | null
+                    storage_used_mb?: number | null
+                }
+                Update: {
+                    created_at?: string | null
+                    created_by?: string | null
+                    id?: string
+                    name?: string
+                    storage_limit_mb?: number | null
+                    storage_used_mb?: number | null
+                }
+                Relationships: []
+            }
+            inventory_items: {
+                Row: {
+                    category: string
+                    created_at: string
+                    created_by: string | null
+                    default_pack_size: number | null
+                    deleted_at: string | null
+                    expiry_date: string | null
+                    household_id: string
+                    id: string
+                    importance_level: string | null
+                    in_cart: boolean
+                    is_ghost: boolean | null
+                    lifecycle_status:
+                    | Database["public"]["Enums"]["lifecycle_status_type"]
+                    | null
+                    location: string | null
+                    min_quantity: number | null
+                    name: string
+                    personal_owner_id: string | null
+                    price: number | null
+                    product_id: string | null
+                    quantity: number
+                    status: Database["public"]["Enums"]["item_status"]
+                    storage_zone_id: string | null
+                    store: string | null
+                    unit: string
+                    updated_at: string
+                }
+                Insert: {
+                    category: string
+                    created_at?: string
+                    created_by?: string | null
+                    default_pack_size?: number | null
+                    deleted_at?: string | null
+                    expiry_date?: string | null
+                    household_id: string
+                    id?: string
+                    importance_level?: string | null
+                    in_cart?: boolean
+                    is_ghost?: boolean | null
+                    lifecycle_status?:
+                    | Database["public"]["Enums"]["lifecycle_status_type"]
+                    | null
+                    location?: string | null
+                    min_quantity?: number | null
+                    name: string
+                    personal_owner_id?: string | null
+                    price?: number | null
+                    product_id?: string | null
+                    quantity?: number
+                    status?: Database["public"]["Enums"]["item_status"]
+                    storage_zone_id?: string | null
+                    store?: string | null
+                    unit?: string
+                    updated_at?: string
+                }
+                Update: {
+                    category?: string
+                    created_at?: string
+                    created_by?: string | null
+                    default_pack_size?: number | null
+                    deleted_at?: string | null
+                    expiry_date?: string | null
+                    household_id?: string
+                    id?: string
+                    importance_level?: string | null
+                    in_cart?: boolean
+                    is_ghost?: boolean | null
+                    lifecycle_status?:
+                    | Database["public"]["Enums"]["lifecycle_status_type"]
+                    | null
+                    location?: string | null
+                    min_quantity?: number | null
+                    name?: string
+                    personal_owner_id?: string | null
+                    price?: number | null
+                    product_id?: string | null
+                    quantity?: number
+                    status?: Database["public"]["Enums"]["item_status"]
+                    storage_zone_id?: string | null
+                    store?: string | null
+                    unit?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "inventory_items_personal_owner_id_fkey"
+                        columns: ["personal_owner_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "inventory_items_product_id_fkey"
+                        columns: ["product_id"]
+                        isOneToOne: false
+                        referencedRelation: "product_definitions"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "inventory_items_storage_zone_id_fkey"
+                        columns: ["storage_zone_id"]
+                        isOneToOne: false
+                        referencedRelation: "storage_zones"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            invitations: {
+                Row: {
+                    created_at: string | null
+                    created_by: string | null
+                    email: string
+                    expires_at: string | null
+                    household_id: string | null
+                    id: string
+                    token: string | null
+                }
+                Insert: {
+                    created_at?: string | null
+                    created_by?: string | null
+                    email: string
+                    expires_at?: string | null
+                    household_id?: string | null
+                    id?: string
+                    token?: string | null
+                }
+                Update: {
+                    created_at?: string | null
+                    created_by?: string | null
+                    email?: string
+                    expires_at?: string | null
+                    household_id?: string | null
+                    id?: string
+                    token?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "invitations_created_by_fkey"
+                        columns: ["created_by"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "invitations_family_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            media_transfers: {
+                Row: {
+                    created_at: string | null
+                    expires_at: string
+                    full_res_hash: string | null
+                    id: string
+                    preview_url: string
+                    receiver_id: string | null
+                    sender_id: string | null
+                    status: string | null
+                }
+                Insert: {
+                    created_at?: string | null
+                    expires_at: string
+                    full_res_hash?: string | null
+                    id?: string
+                    preview_url: string
+                    receiver_id?: string | null
+                    sender_id?: string | null
+                    status?: string | null
+                }
+                Update: {
+                    created_at?: string | null
+                    expires_at?: string
+                    full_res_hash?: string | null
+                    id?: string
+                    preview_url?: string
+                    receiver_id?: string | null
+                    sender_id?: string | null
+                    status?: string | null
+                }
+                Relationships: []
+            }
+            pioneer_codes: {
+                Row: {
+                    code: string
+                    is_used: boolean | null
+                    tier: Database["public"]["Enums"]["user_tier"] | null
+                }
+                Insert: {
+                    code: string
+                    is_used?: boolean | null
+                    tier?: Database["public"]["Enums"]["user_tier"] | null
+                }
+                Update: {
+                    code?: string
+                    is_used?: boolean | null
+                    tier?: Database["public"]["Enums"]["user_tier"] | null
+                }
+                Relationships: []
+            }
+            product_definitions: {
+                Row: {
+                    category: string | null
+                    created_at: string | null
+                    household_id: string
+                    id: string
+                    importance_level: string | null
+                    is_ghost: boolean | null
+                    min_quantity: number | null
+                    name: string
+                    unit: string | null
+                }
+                Insert: {
+                    category?: string | null
+                    created_at?: string | null
+                    household_id: string
+                    id?: string
+                    importance_level?: string | null
+                    is_ghost?: boolean | null
+                    min_quantity?: number | null
+                    name: string
+                    unit?: string | null
+                }
+                Update: {
+                    category?: string | null
+                    created_at?: string | null
+                    household_id?: string
+                    id?: string
+                    importance_level?: string | null
+                    is_ghost?: boolean | null
+                    min_quantity?: number | null
+                    name?: string
+                    unit?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "product_definitions_household_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            profiles: {
+                Row: {
+                    avatar_url: string | null
+                    current_household_id: string | null
+                    display_name: string | null
+                    email: string | null
+                    full_name: string | null
+                    household_ids: string[] | null
+                    id: string
+                    is_superadmin: boolean
+                    level: number | null
+          ui_mode: Database["public"]["Enums"]["ui_mode_type"] | null
+                    updated_at: string | null
+                    username: string | null
+                }
+                Insert: {
+                    avatar_url?: string | null
+                    current_household_id?: string | null
+                    display_name?: string | null
+                    email?: string | null
+                    full_name?: string | null
+                    household_ids?: string[] | null
+                    id: string
+                    is_superadmin?: boolean
+                    level?: number | null
+          ui_mode?: Database["public"]["Enums"]["ui_mode_type"] | null
+                    updated_at?: string | null
+                    username?: string | null
+                }
+                Update: {
+                    avatar_url?: string | null
+                    current_household_id?: string | null
+                    display_name?: string | null
+                    email?: string | null
+                    full_name?: string | null
+                    household_ids?: string[] | null
+                    id?: string
+                    is_superadmin?: boolean
+                    level?: number | null
+          ui_mode?: Database["public"]["Enums"]["ui_mode_type"] | null
+                    updated_at?: string | null
+                    username?: string | null
+                }
+                Relationships: []
+            }
+            prompt_options: {
+                Row: {
+                    category: string
+                    created_at: string | null
+                    id: string
+                    is_active: boolean | null
+                    label: string
+                    prompt_fragment: string
+                    sort_order: number | null
+                }
+                Insert: {
+                    category: string
+                    created_at?: string | null
+                    id?: string
+                    is_active?: boolean | null
+                    label: string
+                    prompt_fragment: string
+                    sort_order?: number | null
+                }
+                Update: {
+                    category?: string
+                    created_at?: string | null
+                    id?: string
+                    is_active?: boolean | null
+                    label?: string
+                    prompt_fragment?: string
+                    sort_order?: number | null
+                }
+                Relationships: []
+            }
+            safety_logs: {
+                Row: {
+                    action_type: string
+                    child_id: string
+                    created_at: string
+                    id: string
+                    parent_id: string
+                    payload: Json
+                }
+                Insert: {
+                    action_type: string
+                    child_id: string
+                    created_at?: string
+                    id?: string
+                    parent_id: string
+                    payload?: Json
+                }
+                Update: {
+                    action_type?: string
+                    child_id?: string
+                    created_at?: string
+                    id?: string
+                    parent_id?: string
+                    payload?: Json
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "safety_logs_child_id_fkey"
+                        columns: ["child_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "safety_logs_parent_id_fkey"
+                        columns: ["parent_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            shopping_list: {
+                Row: {
+                    added_by: string | null
+                    category: string | null
+                    created_at: string | null
+                    estimated_price: number | null
+                    household_id: string
+                    id: string
+                    is_ghost: boolean | null
+                    is_manual: boolean | null
+                    item_name: string
+                    priority: string | null
+                    quantity: number | null
+                    status: string | null
+                }
+                Insert: {
+                    added_by?: string | null
+                    category?: string | null
+                    created_at?: string | null
+                    estimated_price?: number | null
+                    household_id: string
+                    id?: string
+                    is_ghost?: boolean | null
+                    is_manual?: boolean | null
+                    item_name: string
+                    priority?: string | null
+                    quantity?: number | null
+                    status?: string | null
+                }
+                Update: {
+                    added_by?: string | null
+                    category?: string | null
+                    created_at?: string | null
+                    estimated_price?: number | null
+                    household_id?: string
+                    id?: string
+                    is_ghost?: boolean | null
+                    is_manual?: boolean | null
+                    item_name?: string
+                    priority?: string | null
+                    quantity?: number | null
+                    status?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "shopping_list_household_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            social_spaces: {
+                Row: {
+                    created_at: string | null
+                    group_id: string | null
+                    id: string
+                    is_public: boolean | null
+                    owner_id: string | null
+                    type: string
+                }
+                Insert: {
+                    created_at?: string | null
+                    group_id?: string | null
+                    id?: string
+                    is_public?: boolean | null
+                    owner_id?: string | null
+                    type: string
+                }
+                Update: {
+                    created_at?: string | null
+                    group_id?: string | null
+                    id?: string
+                    is_public?: boolean | null
+                    owner_id?: string | null
+                    type?: string
+                }
+                Relationships: []
+            }
+            storage_zones: {
+                Row: {
+                    created_at: string | null
+                    household_id: string
+                    id: string
+                    name: string
+                    type: Database["public"]["Enums"]["zone_type"] | null
+                }
+                Insert: {
+                    created_at?: string | null
+                    household_id: string
+                    id?: string
+                    name: string
+                    type?: Database["public"]["Enums"]["zone_type"] | null
+                }
+                Update: {
+                    created_at?: string | null
+                    household_id?: string
+                    id?: string
+                    name?: string
+                    type?: Database["public"]["Enums"]["zone_type"] | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "storage_zones_household_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            user_roles_deprecated: {
+                Row: {
+                    created_at: string | null
+                    household_id: string
+                    id: string
+                    role: Database["public"]["Enums"]["app_role"]
+                    user_id: string
+                }
+                Insert: {
+                    created_at?: string | null
+                    household_id: string
+                    id?: string
+                    role?: Database["public"]["Enums"]["app_role"]
+                    user_id: string
+                }
+                Update: {
+                    created_at?: string | null
+                    household_id?: string
+                    id?: string
+                    role?: Database["public"]["Enums"]["app_role"]
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "user_roles_family_id_fkey"
+                        columns: ["household_id"]
+                        isOneToOne: false
+                        referencedRelation: "households"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+        }
+        Views: {
+            [_ in never]: never
+        }
+        Functions: {
+            add_item_smart: {
+                Args: {
+                    p_category: string
+                    p_expiry_date?: string
+                    p_name: string
+                    p_quantity: number
+                    p_unit?: string
+                }
+                Returns: Json
+            }
+            claim_pioneer_code: { Args: { input_code: string }; Returns: boolean }
+            create_new_family: { Args: { family_name: string }; Returns: string }
+            get_dashboard_metrics: { Args: { p_household_id: string }; Returns: Json }
+            get_grouped_inventory: {
+                Args: { p_household_id: string }
+                Returns: {
+                    batch_count: number
+                    category: string
+                    earliest_expiry: string
+                    has_expiring_batch: boolean
+                    healthy_quantity: number
+                    importance_level: string
+                    is_ghost: boolean
+                    min_quantity: number
+                    name: string
+                    product_id: string
+                    total_quantity: number
+                    unit: string
+                }[]
+            }
+            get_my_family_ids: { Args: never; Returns: string[] }
+            get_user_household_id: { Args: never; Returns: string }
+            has_family_role: {
+                Args: {
+                    _family_id: string
+                    _role: Database["public"]["Enums"]["app_role"]
+                    _user_id: string
+                }
+                Returns: boolean
+            }
+            is_family_member: { Args: { _family_id: string }; Returns: boolean }
+            is_superadmin: { Args: never; Returns: boolean }
+        }
+        Enums: {
+            app_role: "admin" | "member"
+            household_type: "family" | "shared_flat"
+            inventory_status: "in_stock" | "low" | "out_of_stock"
+            item_status: "panic" | "low" | "stocked" | "postponed"
+            lifecycle_status_type: "essential" | "optional" | "one_shot"
+            message_type: "text" | "image" | "system_alert"
+            shopping_list_status: "active" | "bought" | "snoozed"
+            ui_mode_type: "standard" | "stealth" | "simple"
+            user_role: "owner" | "admin" | "member" | "kid"
+            user_tier: "alpha" | "beta" | "standard"
+            zone_type: "cold" | "dry" | "meds" | "other"
+        }
+        CompositeTypes: {
+            [_ in never]: never
+        }
+    }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+    DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+            Row: infer R
+        }
+    ? R
+    : never
+    : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+            Row: infer R
+        }
+    ? R
+    : never
+    : never
+
+export type TablesInsert<
+    DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+        Insert: infer I
+    }
+    ? I
+    : never
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+    }
+    ? I
+    : never
+    : never
+
+export type TablesUpdate<
+    DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+        Update: infer U
+    }
+    ? U
+    : never
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+    }
+    ? U
+    : never
+    : never
+
+export type Enums<
+    DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+    EnumName extends DefaultSchemaEnumNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+    PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+    CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+    : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+    public: {
+        Enums: {
+            app_role: ["admin", "member"],
+            household_type: ["family", "shared_flat"],
+            inventory_status: ["in_stock", "low", "out_of_stock"],
+            item_status: ["panic", "low", "stocked", "postponed"],
+            lifecycle_status_type: ["essential", "optional", "one_shot"],
+            message_type: ["text", "image", "system_alert"],
+            shopping_list_status: ["active", "bought", "snoozed"],
+            ui_mode_type: ["standard", "stealth", "simple"],
+            user_role: ["owner", "admin", "member", "kid"],
+            user_tier: ["alpha", "beta", "standard"],
+            zone_type: ["cold", "dry", "meds", "other"],
+        },
+    },
+} as const

@@ -1,4 +1,4 @@
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { Fish, Apple, Beef, Milk, ShoppingBag, Snowflake, Coffee, Home, Leaf, SprayCan } from 'lucide-react';
 
 // --- 1. CORE TYPES ---
@@ -33,7 +33,8 @@ export interface InventoryItem {
   quantity: number;
   expiry_date: string | null;
   location: string;
-  price?: number | null; // ✅ NUEVO CAMPO AÑADIDO
+  price?: number | null;
+  is_ghost?: boolean | null;
   created_at: string;
   
   // JOIN: Opcional para facilitar lectura en frontend
@@ -60,7 +61,7 @@ export type ShoppingListItem = Database['public']['Tables']['shopping_list']['Ro
 };
 
 export type FridgeItem = Database['public']['Tables']['fridge_items']['Row'] & {
-  layer?: 'global' | 'personal' | 'critical' | 'high' | 'normal'; 
+  layer?: 'global' | 'personal' | 'critical' | 'high' | 'normal' | 'low'; 
   rotation?: number;
   content?: string | null; 
 };
@@ -151,7 +152,7 @@ export interface GraffitiLayer {
   id: string;
   space_id: string;
   creator_id: string;
-  vector_path: any; 
+  vector_path: Json; 
   color: string;
   opacity: number;
   created_at: string;

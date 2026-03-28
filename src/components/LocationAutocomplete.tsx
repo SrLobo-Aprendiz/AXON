@@ -31,7 +31,7 @@ export const LocationAutocomplete = ({
     // Si pasamos suggestions desde fuera, no hacemos fetch, incluso si está vacío
     if (suggestions !== undefined) {
       setLocations(suggestions);
-      return; 
+      return;
     }
 
     let isMounted = true;
@@ -54,18 +54,18 @@ export const LocationAutocomplete = ({
           }
         });
         setLocations(Array.from(uniqueMap.values()).sort());
-      } catch (e) { 
-        console.error("Error fetching locations:", e); 
+      } catch (e) {
+        console.error("Error fetching locations:", e);
       }
     };
-    
+
     fetchLocations();
 
     return () => {
-        isMounted = false; // Cleanup para evitar memory leaks si se desmonta rápido
+      isMounted = false; // Cleanup para evitar memory leaks si se desmonta rápido
     };
-  // Se quita 'suggestions' del array de dependencias para evitar bucles infinitos
-  // si suggestions es un array inline (e.g. suggestions={[]})
+    // Se quita 'suggestions' del array de dependencias para evitar bucles infinitos
+    // si suggestions es un array inline (e.g. suggestions={[]})
   }, [householdId]);
 
   // Filtro visual
