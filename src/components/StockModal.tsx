@@ -169,7 +169,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
     // Sorting State
-    const [sortBy, setSortBy] = useState<'name' | 'expiry' | 'priority' | 'category'>('name');
+    const [sortBy, setSortBy] = useState<'name' | 'expiry' | 'priority' | 'category' | 'qty' | 'added'>('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     // Swipe-to-add (touch + mouse)
@@ -388,17 +388,27 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     };
 
     const handleDeleteBatch = async (batchId: string) => {
-        await inventoryService.deleteBatch(batchId);
+        // [2026-03-28 12:15] Restaurada la lógica de borrado del Main para mantener el producto:
+        const batchToDelete = rawInventoryItems.find(i => i.id === batchId);
+        const productBatches = rawInventoryItems.filter(i => i.product_id === batchToDelete?.product_id);
 
-        if (selectedProduct?.is_ghost) {
-            const { data: remainingBatches } = await supabase
-                .from('inventory_items')
-                .select('id, quantity')
-                .eq('product_id', selectedProduct.product_id);
+        if (productBatches.length === 1 && !selectedProduct?.is_ghost) {
+            // "Lote Fantasma": Si es el último lote de un producto crítico/normal,
+            // lo dejamos a 0 para que sigan funcionando los avisos y la auto-compra.
+            await inventoryService.updateBatch(batchId, { quantity: 0, expiry_date: null });
+        } else {
+            await inventoryService.deleteBatch(batchId);
 
-            if (!remainingBatches || remainingBatches.length === 0) {
-                await inventoryService.deleteProduct(selectedProduct.product_id);
-                setSelectedProduct(null);
+            if (selectedProduct?.is_ghost) {
+                const { data: remainingBatches } = await supabase
+                    .from('inventory_items')
+                    .select('id, quantity')
+                    .eq('product_id', selectedProduct.product_id);
+
+                if (!remainingBatches || remainingBatches.length === 0) {
+                    await inventoryService.deleteProduct(selectedProduct.product_id);
+                    setSelectedProduct(null);
+                }
             }
         }
         fetchData();
@@ -527,6 +537,14 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                         const labelB = CATEGORY_CONFIG[b.category as keyof typeof CATEGORY_CONFIG]?.label || '';
                         comparison = labelA.localeCompare(labelB);
                         break;
+                    case 'qty':
+                        // [2026-03-28 12:15] Implementado filtro de cantidad:
+                        comparison = (a.total_quantity || 0) - (b.total_quantity || 0);
+                        break;
+                    case 'added':
+                        // [2026-03-28 12:15] Implementado orden por añadido (usando ID como proxy):
+                        comparison = a.product_id.localeCompare(b.product_id);
+                        break;
                 }
                 return sortOrder === 'asc' ? comparison : -comparison;
             });
@@ -581,7 +599,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                         </TabsContent>
 
                         {/* DESPENSA */}
-                        <TabsContent value="pantry" className="flex-1 flex flex-col min-h-0 m-0 w-full h-full data-[state=inactive]:hidden">
+                        <TabsContent value="pantry" className="flex-1 flex flex-col min-h-0 m-0 w-full h-full data-[state=inactive]:hidden overflow-visible">
                             {activeTab === 'pantry' && (
                                 selectedProduct ? (
                                     // VISTA DETALLE
@@ -639,8 +657,8 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                         </div>
                                     </div>
                                 ) : (
-                                    // VISTA LISTA
-                                    <div className="flex-1 flex flex-col min-h-0 bg-zinc-950 w-full h-full justify-start">
+                                    // VISTA LISTA [2026-03-28 12:15] Eliminado overflow-hidden para evitar recortes en móvil
+                                    <div className="flex-1 flex flex-col min-h-0 bg-zinc-950 w-full h-full justify-start overflow-visible">
                                         <div className="p-2 border-b border-zinc-800 bg-zinc-900 shrink-0 space-y-2">
                                             <div className="relative">
                                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
