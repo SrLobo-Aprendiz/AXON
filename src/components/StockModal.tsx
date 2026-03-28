@@ -553,7 +553,7 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-                <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-[98vw] sm:w-full max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl [&>button]:hidden focus:outline-none">
+                <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-[98vw] sm:max-w-3xl h-[92vh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl [&>button]:hidden focus:outline-none">
 
                     <DialogTitle className="sr-only">Gestión de Stock</DialogTitle>
                     <DialogDescription className="sr-only">Inventario</DialogDescription>
@@ -786,8 +786,8 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                                 )}
                                             </div>
                                         </div>
-                                        <ScrollArea className="flex-1 w-full">
-                                            <div className="p-2 space-y-2 pb-20">
+                                        <ScrollArea className="flex-1 w-full h-full">
+                                            <div className="p-4 space-y-2.5 pb-24">
                                                 {sortedAndFilteredProducts.map(item => (
                                                     <ProductRow
                                                         key={item.product_id}
