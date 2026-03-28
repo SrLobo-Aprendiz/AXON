@@ -3,7 +3,7 @@ import { format, addDays, differenceInDays } from 'date-fns';
 import {
     Package, Search, AlertTriangle, ShoppingCart,
     Pencil, Plus, Loader2, X, CheckCircle2,
-    Ghost, Skull, Info, ChevronRight, Minus, Layers, Check, ChevronLeft, Trash2
+    Ghost, Skull, Info, ChevronRight, Minus, Layers, Check, ChevronLeft, Trash2, MapPin, Target
 } from 'lucide-react';
 import { inventoryService } from '@/lib/services/api';
 import { supabase } from '@/integrations/supabase/client';
@@ -106,15 +106,20 @@ const ProductRow = React.memo(({
                 <div className={cn("absolute top-0 left-0 px-2 py-0.5 text-[8px] font-black tracking-tighter bg-zinc-800/80 rounded-br-lg shadow-sm z-10", priorityTextColor)}>
                     {priorityText}
                 </div>
-                <div className="flex-1 min-w-0 pr-1 shrink">
-                    <div className="font-bold text-[13.5px] text-zinc-100 leading-tight mb-0.5 truncate w-full">{item.name}</div>
-                    <div className="flex items-center gap-2 text-[11.5px] w-full">
-                        <div className="flex items-center gap-1 text-zinc-400 font-medium whitespace-nowrap shrink-0">
+                <div className="flex-1 min-w-0 pr-1 pt-1">
+                    <div className="font-bold text-[13.5px] text-zinc-100 leading-tight mb-0.5 truncate">{item.name}</div>
+                    <div className="flex items-center gap-3 text-[11px] text-zinc-400 min-w-0">
+                        <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
                             <Layers className="w-3 h-3 text-zinc-500" />
-                            <span>{item.batches.length} {item.batches.length === 1 ? 'lote' : 'lotes'}</span>
+                            <span>{item.batches.length}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-zinc-500 italic truncate opacity-70 min-w-0 flex-1">
-                            • {Object.keys(item.locations).join(', ')}
+                        <div className="flex items-center gap-1 whitespace-nowrap shrink-0">
+                            <MapPin className="w-3 h-3 text-zinc-500" />
+                            <span>{Object.keys(item.locations).length}</span>
+                        </div>
+                        <div className="flex items-center gap-1 truncate italic min-w-0 flex-1 text-zinc-500 opacity-80">
+                            <Target className="w-3 h-3 text-zinc-500 shrink-0" />
+                            <span className="truncate">{item.preferredLocation || 'Sin ubicación'}</span>
                         </div>
                     </div>
                 </div>
@@ -249,8 +254,22 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
             }
         });
 
-        // Generar Alertas
+        // Generar Alertas y Ubicación Preferente
         groupedMap.forEach(group => {
+            if (group.batches.length > 0) {
+                const sortedBatches = [...group.batches].sort((a, b) => {
+                    const dateA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+                    const dateB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+                    if (dateA !== dateB) return dateA - dateB;
+                    const createA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const createB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return createA - createB;
+                });
+                group.preferredLocation = sortedBatches[0].location || 'Sin ubicación';
+            } else {
+                group.preferredLocation = 'Sin ubicación';
+            }
+
             if (group.is_ghost) return;
 
             const threshold = group.min_quantity !== null
@@ -821,9 +840,9 @@ export const StockModal: React.FC<StockModalProps> = ({ isOpen, onClose, househo
                                             <TabsTrigger value="suggestions" className="text-xs data-[state=active]:text-purple-400">Sugerencias ({suggestionAlerts.length})</TabsTrigger>
                                         </TabsList>
                                     </div>
-                                    <ScrollArea className="flex-1 w-full p-4">
-                                        <div className="space-y-4 pb-10">
-                                            <TabsContent value="critical" className="mt-0 space-y-2 data-[state=inactive]:hidden">
+                                    <ScrollArea className="flex-1 w-full h-full overflow-visible">
+                                        <div className="p-4 space-y-4 pb-24 overflow-visible">
+                                            <TabsContent value="critical" className="mt-0 space-y-2.5 data-[state=inactive]:hidden overflow-visible">
                                                 {criticalAlerts.length === 0 && <div className="flex flex-col items-center justify-center h-40 text-zinc-500 gap-2"><CheckCircle2 className="w-8 h-8 opacity-50 text-green-500" /><span className="text-xs">Todo en orden por aquí.</span></div>}
                                                 {criticalAlerts.map(item => {
                                                     const critLabel = item.importance_level === 'critical' ? 'VITAL' : item.importance_level === 'high' ? 'ALTA' : 'NORM.';
