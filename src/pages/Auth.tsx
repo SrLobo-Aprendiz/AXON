@@ -5,7 +5,7 @@ import { NEXT_PUBLIC_APP_NAME } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Sparkles, Users, ArrowLeft } from 'lucide-react';
@@ -31,6 +31,7 @@ const Auth: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(getInitialTab());
+  const [isEmailSent, setIsEmailSent] = useState(false);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -115,8 +116,8 @@ const Auth: React.FC = () => {
     }
     
     setIsLoading(false);
-    toast({ title: 'Welcome!', description: 'Your account has been created.' });
-    navigate('/dashboard');
+    setIsEmailSent(true);
+    toast({ title: '¡Casi listo!', description: 'Revisa tu correo para confirmar tu cuenta.' });
   };
 
   return (
@@ -142,8 +143,31 @@ const Auth: React.FC = () => {
           <p className="text-muted-foreground mt-2">Household connections, simplified</p>
         </div>
 
-        {/* Auth Card */}
-        <Card className="border-border/50 shadow-xl">
+        {isEmailSent ? (
+          <Card className="border-border/50 shadow-xl overflow-hidden">
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                <Sparkles className="w-6 h-6 text-blue-500" />
+              </div>
+              <CardTitle>Verifica tu email</CardTitle>
+              <CardDescription>
+                Hemos enviado un enlace de confirmación a <span className="font-bold text-foreground">{email}</span>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center text-sm text-muted-foreground space-y-4">
+              <p>
+                Haz clic en el enlace del correo para activar tu cuenta. Una vez confirmado, podrás entrar en AXON.
+              </p>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-2">
+              <Button variant="outline" className="w-full" onClick={() => setIsEmailSent(false)}>
+                Volver al login
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          /* Auth Card */
+          <Card className="border-border/50 shadow-xl">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
             <CardHeader className="pb-4">
               <TabsList className="grid w-full grid-cols-2">
@@ -259,6 +283,7 @@ const Auth: React.FC = () => {
             </TabsContent>
           </Tabs>
         </Card>
+        )}
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground mt-6">
